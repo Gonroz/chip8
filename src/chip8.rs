@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use rand::Rng;
 
 pub struct Chip8Plugin;
 
@@ -283,5 +284,176 @@ impl Chip8 {
 
         // If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0.
         // Then Vx is multiplied by 2.
+
+        if self.registers[x] > 127 {
+            self.vf = 1;
+        } else {
+            self.vf = 0;
+        }
+        self.registers[x] = self.registers[x] * 2;
+        self.increment_program_counter(1);
+    }
+
+    // SNE Vx, Vy
+    fn opcode_9xy0(&mut self, x: usize, y: usize) {
+        // Skip next instruction if Vx != Vy.
+
+        // The values of Vx and Vy are compared, and if they are not equal,
+        // the program counter is increased by 2.
+
+        if self.registers[x] != self.registers[y] {
+            self.increment_program_counter(2);
+        } else {
+            self.increment_program_counter(1);
+        }
+    }
+
+    // LD I, addr
+    fn opcode_Annn(&mut self, nnn: u16) {
+        // Set I = nnn.
+
+        // The value of register I is set to nnn.
+
+        self.i = nnn;
+        self.increment_program_counter(1);
+    }
+
+    // JP V0, addr
+    fn opcode_Bnnn(&mut self, nnn: u16) {
+        // Jump to location nnn + V0.
+
+        // The program counter is set to nnn plus the value of V0.
+
+        self.program_counter = nnn + self.registers[0] as u16;
+    }
+
+    // RND Vx, byte
+    fn opcode_Cxkk(&mut self, x: usize, kk: u8) {
+        // Set Vx = random byte AND kk.
+
+        // The interpreter generates a random number from 0 to 255,
+        // which is then ANDed with the value kk. The results are stored in Vx.
+        let mut rng = rand::thread_rng();
+        let num = rng.gen_range(0..256) as u8;
+        self.registers[x] = num & kk;
+        self.increment_program_counter(2);
+    }
+
+    // DRW Vx, Vy, nibble
+    fn opcode_Dxyn(&mut self, x: usize, y: usize, n: u8) {
+        // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
+
+        // The interpreter reads n bytes from memory, starting at the address stored in I.
+        // These bytes are then displayed as sprites on screen at coordinates (Vx, Vy).
+        // Sprites are XORed onto the existing screen.
+        // If this causes any pixels to be erased, VF is set to 1, otherwise it is set to 0.
+        // If the sprite is positioned so part of it is outside the coordinates of the display,
+        // it wraps around to the opposite side of the screen.
+        // See instruction 8xy3 for more information on XOR, and section 2.4,
+        // Display, for more information on the Chip-8 screen and sprites.
+    }
+
+    // SKP Vx
+    fn opcode_9x9E(&mut self, x: usize) {
+        // Skip next instruction if key with the value of Vx is pressed.
+
+        // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position,
+        // PC is increased by 2.
+    }
+
+    // SKNP A1
+    fn opcode_9xA1(&mut self, x: usize) {
+        // Skip next instruction if key with the value of Vx is not pressed.
+
+        // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
+    }
+
+    // Lx Vx, DT
+    fn opcode_Fx07(&mut self, x: usize) {
+        // Set Vx = delay timer value.
+
+        // The value of DT is placed into Vx.
+
+        self.registers[x] = self.delay_timer;
+        self.increment_program_counter(1);
+    }
+
+    // LD Vx, K
+    fn opcode_Fx0A(&mut self, x: usize) {
+        // Wait for a key press, store the value of the key in Vx.
+
+        // All execution stops until a key is pressed, then the value of that key is stored in Vx.
+    }
+
+    // LD DT, Vx
+    fn opcode_Fx15(&mut self, x: usize) {
+        // Set delay timer = Vx.
+
+        // DT is set equal to the value of Vx.
+
+        self.delay_timer = self.registers[x];
+        self.increment_program_counter(1);
+    }
+
+    // LD ST, Vx
+    fn opcode_Fx18(&mut self, x: usize) {
+        // Set sound timer = Vx.
+
+        // ST is set equal to the value of Vx.
+
+        self.sound_timer = self.registers[x];
+        self.increment_program_counter(1);
+    }
+
+    // ADD I, Vx
+    fn opcode_Fx1E(&mut self, x: usize) {
+        // Set I = I + Vx.
+
+        // The values of I and Vx are added, and the results are stored in I.
+
+        self.i = self.i + self.registers[x] as u16;
+        self.increment_program_counter(1);
+    }
+
+    // LD F, Vx
+    fn opcode_Fx29(&mut self, x: usize) {
+        // Set I = location of sprite for digit Vx.
+
+        // The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx.
+        // See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
+    }
+
+    // LD B, Vx
+    fn opcode_Fx33(&mut self, x: usize) {
+        // Store BCD representation of Vx in memory locations I, I+1, and I+2.
+
+        // The interpreter takes the decimal value of Vx, and places the hundreds digit in memory at location in I,
+        // the tens digit at location I+1, and the ones digit at location I+2.
+        self.ram[self.i as usize] = self.registers[x] / 100;
+        self.ram[self.i as usize + 1] = self.registers[x] % 100 / 10;
+        self.ram[self.i as usize + 2] = self.registers[x] % 10;
+    }
+
+    // LD [I], Vx
+    fn opcode_Fx55(&mut self, x: usize) {
+        // Store registers V0 through Vx in memory starting at location I.
+
+        // The interpreter copies the values of registers V0 through Vx into memory,
+        // starting at the address in I.
+        for i in 0..=x {
+            self.ram[self.i as usize + i] = self.registers[i];
+        }
+        self.increment_program_counter(1);
+    }
+
+    // LD Vx, [I]
+    fn opcode_Fx65(&mut self, x: usize) {
+        // Read registers V0 through Vx from memory starting at location I.
+
+        // The interpreter reads values from memory starting at location I into registers V0 through Vx.
+        for i in 0..=x {
+            self.registers[i] = self.ram[self.i as usize + i];
+        }
+        self.increment_program_counter(1);
     }
 }
