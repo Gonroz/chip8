@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{input, prelude::*};
 use rand::Rng;
 
 pub struct Chip8Plugin;
@@ -379,10 +379,85 @@ impl Chip8 {
     }
 
     // LD Vx, K
-    fn opcode_Fx0A(&mut self, x: usize) {
+    fn opcode_Fx0A(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
         // Wait for a key press, store the value of the key in Vx.
 
         // All execution stops until a key is pressed, then the value of that key is stored in Vx.
+
+        let mut key_pressed = false;
+        while !key_pressed {
+            // do stuff
+            for key in keys.get_pressed() {
+                match key {
+                    KeyCode::Key1 => {
+                        self.registers[x] = 0x1;
+                        key_pressed = true;
+                    }
+                    KeyCode::Key2 => {
+                        self.registers[x] = 0x2;
+                        key_pressed = true;
+                    }
+                    KeyCode::Key3 => {
+                        self.registers[x] = 0x3;
+                        key_pressed = true;
+                    }
+                    KeyCode::Key4 => {
+                        self.registers[x] = 0xC;
+                        key_pressed = true;
+                    }
+                    KeyCode::Q => {
+                        self.registers[x] = 0x4;
+                        key_pressed = true;
+                    }
+                    KeyCode::W => {
+                        self.registers[x] = 0x5;
+                        key_pressed = true;
+                    }
+                    KeyCode::E => {
+                        self.registers[x] = 0x6;
+                        key_pressed = true;
+                    }
+                    KeyCode::R => {
+                        self.registers[x] = 0xD;
+                        key_pressed = true;
+                    }
+                    KeyCode::A => {
+                        self.registers[x] = 0x7;
+                        key_pressed = true;
+                    }
+                    KeyCode::S => {
+                        self.registers[x] = 0x8;
+                        key_pressed = true;
+                    }
+                    KeyCode::D => {
+                        self.registers[x] = 0x9;
+                        key_pressed = true;
+                    }
+                    KeyCode::F => {
+                        self.registers[x] = 0xE;
+                        key_pressed = true;
+                    }
+                    KeyCode::Z => {
+                        self.registers[x] = 0xA;
+                        key_pressed = true;
+                    }
+                    KeyCode::X => {
+                        self.registers[x] = 0x0;
+                        key_pressed = true;
+                    }
+                    KeyCode::C => {
+                        self.registers[x] = 0xB;
+                        key_pressed = true;
+                    }
+                    KeyCode::V => {
+                        self.registers[x] = 0xF;
+                        key_pressed = true;
+                    }
+                    _ => continue,
+                }
+            }
+        }
+        self.increment_program_counter(1);
     }
 
     // LD DT, Vx
