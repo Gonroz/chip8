@@ -18,6 +18,6 @@ pub fn keycode_to_hex(keycode: KeyCode) -> u8 {
         KeyCode::X => 0x0,
         KeyCode::C => 0xB,
         KeyCode::V => 0xF,
-        _ => 0xFF, // Returns 255 in case of one of the non-allowed keys are pressed
+        _ => 0xFF, // Returns 255 in case of one of the non-registered keys are pressed
     }
 }

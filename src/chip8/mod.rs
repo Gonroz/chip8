@@ -418,72 +418,11 @@ impl Chip8 {
         while !key_pressed {
             // do stuff
             for key in keys.get_pressed() {
-                match key {
-                    KeyCode::Key1 => {
-                        self.registers[x] = util::keycode_to_hex(*key);
-                        key_pressed = true;
-                    }
-                    KeyCode::Key2 => {
-                        self.registers[x] = 0x2;
-                        key_pressed = true;
-                    }
-                    KeyCode::Key3 => {
-                        self.registers[x] = 0x3;
-                        key_pressed = true;
-                    }
-                    KeyCode::Key4 => {
-                        self.registers[x] = 0xC;
-                        key_pressed = true;
-                    }
-                    KeyCode::Q => {
-                        self.registers[x] = 0x4;
-                        key_pressed = true;
-                    }
-                    KeyCode::W => {
-                        self.registers[x] = 0x5;
-                        key_pressed = true;
-                    }
-                    KeyCode::E => {
-                        self.registers[x] = 0x6;
-                        key_pressed = true;
-                    }
-                    KeyCode::R => {
-                        self.registers[x] = 0xD;
-                        key_pressed = true;
-                    }
-                    KeyCode::A => {
-                        self.registers[x] = 0x7;
-                        key_pressed = true;
-                    }
-                    KeyCode::S => {
-                        self.registers[x] = 0x8;
-                        key_pressed = true;
-                    }
-                    KeyCode::D => {
-                        self.registers[x] = 0x9;
-                        key_pressed = true;
-                    }
-                    KeyCode::F => {
-                        self.registers[x] = 0xE;
-                        key_pressed = true;
-                    }
-                    KeyCode::Z => {
-                        self.registers[x] = 0xA;
-                        key_pressed = true;
-                    }
-                    KeyCode::X => {
-                        self.registers[x] = 0x0;
-                        key_pressed = true;
-                    }
-                    KeyCode::C => {
-                        self.registers[x] = 0xB;
-                        key_pressed = true;
-                    }
-                    KeyCode::V => {
-                        self.registers[x] = 0xF;
-                        key_pressed = true;
-                    }
-                    _ => continue,
+                if util::keycode_to_hex(*key) == 0xFF {
+                    continue;
+                } else {
+                    self.registers[x] = util::keycode_to_hex(*key);
+                    key_pressed = true;
                 }
             }
         }
