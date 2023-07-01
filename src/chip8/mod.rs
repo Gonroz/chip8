@@ -8,7 +8,8 @@ pub struct Chip8Plugin;
 impl Plugin for Chip8Plugin {
     fn build(&self, _app: &mut App) {
         // add things here
-        let chip8 = Chip8::new();
+        let mut chip8 = Chip8::new();
+        chip8.init();
     }
 }
 
@@ -40,11 +41,22 @@ impl Chip8 {
         }
     }
 
+    pub fn init(&mut self) {
+        self.load_font_into_memory();
+    }
+
     fn load(&mut self, data: &Vec<u8>) {
         // load data in
         for i in 0..data.len() {
             // add data to ram
             self.ram[0x200 + i] = data[i];
+        }
+    }
+
+    fn load_font_into_memory(&mut self) {
+        // load font into memory
+        for i in 0..util::CHIP8_FONT.len() {
+            self.ram[i] = util::CHIP8_FONT[i];
         }
     }
 
@@ -414,19 +426,15 @@ impl Chip8 {
 
         // All execution stops until a key is pressed, then the value of that key is stored in Vx.
 
-        let mut key_pressed = false;
-        while !key_pressed {
-            // do stuff
-            for key in keys.get_pressed() {
-                if util::keycode_to_hex(*key) == 0xFF {
-                    continue;
-                } else {
-                    self.registers[x] = util::keycode_to_hex(*key);
-                    key_pressed = true;
-                }
+        for key in keys.get_pressed() {
+            if util::keycode_to_hex(*key) == 0xFF {
+                continue;
+            } else {
+                self.registers[x] = util::keycode_to_hex(*key);
+                self.increment_program_counter(1);
+                break;
             }
         }
-        self.increment_program_counter(1);
     }
 
     // LD DT, Vx
@@ -463,8 +471,11 @@ impl Chip8 {
     fn opcode_Fx29(&mut self, x: usize) {
         // Set I = location of sprite for digit Vx.
 
-        // The value of I is set to the location for the hexadecimal sprite corresponding to the value of Vx.
+        // The value of I is set to the location in memory for the hexadecimal sprite corresponding to the value of Vx.
         // See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
+
+        self.i = self.ram[x * 5] as u16;
+        self.increment_program_counter(1);
     }
 
     // LD B, Vx
