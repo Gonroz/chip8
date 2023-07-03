@@ -23,6 +23,7 @@ struct Chip8 {
     program_counter: u16,
     stack_pointer: usize,
     stack: [u16; 16],
+    screen: [[u8; 32]; 64],
 }
 
 impl Chip8 {
@@ -38,6 +39,7 @@ impl Chip8 {
             program_counter: 0,
             stack_pointer: 0,
             stack: [0; 16],
+            screen: [[0; 32]; 64],
         }
     }
 
@@ -89,6 +91,11 @@ impl Chip8 {
     // CLS
     fn opcode_00E0(&mut self) {
         // Clear the display.
+        for row in 0..self.screen.len() {
+            for column in 0..self.screen[0].len() {
+                self.screen[row][column] = 0;
+            }
+        }
         self.increment_program_counter(1);
     }
 
@@ -354,7 +361,7 @@ impl Chip8 {
     }
 
     // DRW Vx, Vy, nibble
-    fn opcode_Dxyn(&mut self, x: usize, y: usize, n: u8) {
+    fn opcode_Dxyn(&mut self, x: usize, y: usize, n: usize) {
         // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 
         // The interpreter reads n bytes from memory, starting at the address stored in I.
@@ -365,6 +372,27 @@ impl Chip8 {
         // it wraps around to the opposite side of the screen.
         // See instruction 8xy3 for more information on XOR, and section 2.4,
         // Display, for more information on the Chip-8 screen and sprites.
+
+        self.vf = 0;
+        let x: usize = self.registers[x] as usize;
+        let y: usize = self.registers[y] as usize;
+
+        for byte in 0..n {
+            // do stuff
+            for bit_shift in 0..8 {
+                // do something with the bits
+                let bit = (self.ram[self.i as usize + byte] >> (7 - bit_shift)) & 0x1;
+                let cx = (x + byte) % 64;
+                let cy = (y + bit_shift) % 32;
+                if self.screen[cx][cy] == 1 && bit == 1 {
+                    self.screen[cx][cy] = 0;
+                    self.vf = 1;
+                } else {
+                    self.screen[cx][cy] = bit;
+                }
+            }
+        }
+        self.increment_program_counter(1);
     }
 
     // SKP Vx
