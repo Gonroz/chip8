@@ -3,16 +3,87 @@ use rand::Rng;
 
 mod util;
 
-pub struct Chip8Plugin;
+#[derive(Bundle)]
+struct Pixel {
+    sprite_bundle: SpriteBundle,
+    position: Position,
+}
 
-impl Plugin for Chip8Plugin {
-    fn build(&self, _app: &mut App) {
-        // add things here
-        let mut chip8 = Chip8::new();
-        chip8.init();
+#[derive(Component)]
+struct Position {
+    x: usize,
+    y: usize,
+}
+
+impl Pixel {
+    fn new(pos_x: f32, pos_y: f32, x: usize, y: usize) -> Self {
+        println!("New pixel");
+        Pixel {
+            sprite_bundle: SpriteBundle {
+                sprite: Sprite {
+                    color: Color::BLACK,
+                    custom_size: Some(Vec2::new(20.0, 20.0)),
+                    ..default()
+                },
+                transform: Transform::from_translation(Vec3::new(pos_x, pos_y, 0.0)),
+                ..default()
+            },
+            position: Position { x, y },
+        }
     }
 }
 
+pub struct Chip8Plugin;
+
+impl Plugin for Chip8Plugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins(DefaultPlugins)
+            // .add_startup_system(setup)
+            .add_startup_system(setup)
+            .add_systems((update, draw.after(update)));
+    }
+}
+
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+
+    commands.spawn(Chip8::new());
+    for y in 0..4 {
+        for x in 0..5 {
+            commands.spawn(Pixel::new(
+                x as f32 * 50.0 + 10.0,
+                -(y as f32 * 50.0 + 10.0),
+                x,
+                y,
+            ));
+        }
+    }
+}
+
+fn draw(mut query: Query<(&mut Sprite, &mut Position, &mut Chip8)>) {
+    // lala
+    // println!("{}", query.is_empty());
+    for (mut sprite, position, chip8) in query.iter_mut() {
+        if chip8.screen[position.x][position.y] == 0 {
+            sprite.color = Color::BLACK;
+        } else {
+            sprite.color = Color::WHITE;
+        }
+    }
+}
+
+fn update(mut query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
+    // lala
+    // println!("{}", query.is_empty());
+    query.single_mut().tick(keys);
+}
+
+// fn init_chip8(mut query: Query<&mut Chip8>) {
+//     println!("{}", query.is_empty());
+//     // query.single_mut().init();
+// }
+
+#[derive(Component)]
 struct Chip8 {
     ram: [u8; 4096],
     registers: [u8; 16],
@@ -30,22 +101,33 @@ impl Chip8 {
     fn new() -> Self {
         // return default
         Chip8 {
-            ram: [0; 4096],
+            ram: Chip8::ram_init(),
             registers: [0; 16],
             i: 0,
             vf: 0,
             delay_timer: 0,
             sound_timer: 0,
-            program_counter: 0,
+            program_counter: 0x200,
             stack_pointer: 0,
             stack: [0; 16],
             screen: [[0; 32]; 64],
         }
     }
 
-    pub fn init(&mut self) {
-        self.load_font_into_memory();
+    fn ram_init() -> [u8; 4096] {
+        let mut ram: [u8; 4096] = [0; 4096];
+        // Load font into memory
+        for i in 0..util::CHIP8_FONT.len() {
+            ram[i] = util::CHIP8_FONT[i];
+        }
+        // self.load
+        return ram;
     }
+
+    // pub fn init(&mut self) {
+    //     self.load_font_into_memory();
+    //     // println!("Done with init.");
+    // }
 
     fn load(&mut self, data: &Vec<u8>) {
         // load data in
@@ -55,14 +137,28 @@ impl Chip8 {
         }
     }
 
-    fn load_font_into_memory(&mut self) {
-        // load font into memory
-        for i in 0..util::CHIP8_FONT.len() {
-            self.ram[i] = util::CHIP8_FONT[i];
+    fn tick(&mut self, keys: Res<Input<KeyCode>>) {
+        // do stuff
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
         }
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
+        }
+
+        let opcode: u16 = (self.ram[self.program_counter as usize] << 8) as u16
+            | (self.ram[self.program_counter as usize + 1]) as u16;
+        self.perform_opcode(opcode, keys);
     }
 
-    fn perform_opcode(&mut self, opcode: u16) {
+    // fn load_font_into_memory(&mut self) {
+    //     // load font into memory
+    //     for i in 0..util::CHIP8_FONT.len() {
+    //         self.ram[i] = util::CHIP8_FONT[i];
+    //     }
+    // }
+
+    fn perform_opcode(&mut self, opcode: u16, keys: Res<Input<KeyCode>>) {
         let nibbles = (
             (opcode & 0xF000) >> 12 as usize,
             (opcode & 0x0F00) >> 8 as usize,
@@ -71,21 +167,53 @@ impl Chip8 {
         );
 
         let nnn = opcode & 0x0FFF;
-        let n = opcode & 0x000F;
-        let x = opcode & 0x0F00;
-        let y = opcode & 0x00F0;
-        let kk = opcode & 0x00FF;
+        let n: usize = (opcode & 0x000F) as usize;
+        let x: usize = opcode as usize & 0x0F00;
+        let y: usize = opcode as usize & 0x00F0;
+        let kk: u8 = (opcode & 0x00FF) as u8;
 
         // Perform specific opcode
         match nibbles {
-            //lala
-            //lala
+            (0x0, 0x0, 0xE, 0x0) => self.opcode_00E0(),
+            (0x0, 0x0, 0xE, 0xE) => self.opcode_00EE(),
+            (0x1, _, _, _) => self.opcode_1nnn(nnn),
+            (0x2, _, _, _) => self.opcode_2nnn(nnn),
+            (0x3, _, _, _) => self.opcode_3xkk(x, kk),
+            (0x4, _, _, _) => self.opcode_4xkk(x, kk),
+            (0x5, _, _, 0x0) => self.opcode_5xy0(x, y),
+            (0x6, _, _, _) => self.opcode_6xkk(x, kk),
+            (0x7, _, _, _) => self.opcode_7xkk(x, kk),
+            (0x8, _, _, 0x0) => self.opcode_8xy0(x, y),
+            (0x8, _, _, 0x1) => self.opcode_8xy1(x, y),
+            (0x8, _, _, 0x2) => self.opcode_8xy2(x, y),
+            (0x8, _, _, 0x3) => self.opcode_8xy3(x, y),
+            (0x8, _, _, 0x4) => self.opcode_8xy4(x, y),
+            (0x8, _, _, 0x5) => self.opcode_8xy5(x, y),
+            (0x8, _, _, 0x6) => self.opcode_8xy6(x),
+            (0x8, _, _, 0x7) => self.opcode_8xy7(x, y),
+            (0x8, _, _, 0xE) => self.opcode_8xyE(x, y),
+            (0x9, _, _, 0x0) => self.opcode_9xy0(x, y),
+            (0xA, _, _, _) => self.opcode_Annn(nnn),
+            (0xB, _, _, _) => self.opcode_Bnnn(nnn),
+            (0xC, _, _, _) => self.opcode_Cxkk(x, kk),
+            (0xD, _, _, _) => self.opcode_Dxyn(x, y, n),
+            (0xE, _, 0x9, 0xE) => self.opcode_Ex9E(x, keys),
+            (0xE, _, 0xA, 0x1) => self.opcode_ExA1(x, keys),
+            (0xF, _, 0x0, 0x7) => self.opcode_Fx07(x),
+            (0xF, _, 0x0, 0xA) => self.opcode_Fx0A(x, keys),
+            (0xF, _, 0x1, 0x5) => self.opcode_Fx15(x),
+            (0xF, _, 0x1, 0x8) => self.opcode_Fx18(x),
+            (0xF, _, 0x1, 0xE) => self.opcode_Fx1E(x),
+            (0xF, _, 0x2, 0x9) => self.opcode_Fx29(x),
+            (0xF, _, 0x3, 0x3) => self.opcode_Fx33(x),
+            (0xF, _, 0x5, 0x5) => self.opcode_Fx55(x),
+            (0xF, _, 0x6, 0x5) => self.opcode_Fx65(x),
             _ => panic!("invalid opcode"),
         }
     }
 
     fn increment_program_counter(&mut self, num: u16) {
-        self.program_counter = self.program_counter + num;
+        self.program_counter = self.program_counter + num * 2;
     }
 
     // CLS
@@ -396,7 +524,7 @@ impl Chip8 {
     }
 
     // SKP Vx
-    fn opcode_9x9E(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
+    fn opcode_Ex9E(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
         // Skip next instruction if key with the value of Vx is pressed.
 
         // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position,
@@ -418,7 +546,7 @@ impl Chip8 {
     }
 
     // SKNP A1
-    fn opcode_9xA1(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
+    fn opcode_ExA1(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
         // Skip next instruction if key with the value of Vx is not pressed.
 
         // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
