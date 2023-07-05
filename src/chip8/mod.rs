@@ -1,7 +1,14 @@
 use bevy::prelude::*;
 use rand::Rng;
 
+use std::fs::File;
+use std::io::BufReader;
+use std::io::Read;
+
 mod util;
+
+const PIXEL_SIZE: f32 = 17.0;
+const PIXEL_GAP: f32 = 1.0;
 
 #[derive(Bundle)]
 struct Pixel {
@@ -17,12 +24,12 @@ struct Position {
 
 impl Pixel {
     fn new(pos_x: f32, pos_y: f32, x: usize, y: usize) -> Self {
-        println!("New pixel");
+        // println!("New pixel");
         Pixel {
             sprite_bundle: SpriteBundle {
                 sprite: Sprite {
                     color: Color::BLACK,
-                    custom_size: Some(Vec2::new(20.0, 20.0)),
+                    custom_size: Some(Vec2::new(PIXEL_SIZE, PIXEL_SIZE)),
                     ..default()
                 },
                 transform: Transform::from_translation(Vec3::new(pos_x, pos_y, 0.0)),
@@ -48,11 +55,12 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn(Chip8::new());
-    for y in 0..4 {
-        for x in 0..5 {
+    for y in 0..32 {
+        for x in 0..64 {
+            // println!("spawn");
             commands.spawn(Pixel::new(
-                x as f32 * 50.0 + 10.0,
-                -(y as f32 * 50.0 + 10.0),
+                x as f32 * (PIXEL_SIZE + PIXEL_GAP) - (PIXEL_SIZE + PIXEL_GAP) * 32.0,
+                -(y as f32 * (PIXEL_SIZE + PIXEL_GAP)) + (PIXEL_SIZE + PIXEL_GAP) * 16.0,
                 x,
                 y,
             ));
@@ -60,16 +68,26 @@ fn setup(mut commands: Commands) {
     }
 }
 
-fn draw(mut query: Query<(&mut Sprite, &mut Position, &mut Chip8)>) {
+fn draw(mut pixel_query: Query<(&mut Sprite, &mut Position)>, chip8_query: Query<&mut Chip8>) {
     // lala
-    // println!("{}", query.is_empty());
-    for (mut sprite, position, chip8) in query.iter_mut() {
-        if chip8.screen[position.x][position.y] == 0 {
-            sprite.color = Color::BLACK;
+    // println!("{}", chip8_query.is_empty());
+    let chip8 = chip8_query.single();
+    for mut pixel in pixel_query.iter_mut() {
+        if chip8.screen[pixel.1.x][pixel.1.y] == 0 {
+            pixel.0.color = Color::BLACK;
         } else {
-            sprite.color = Color::WHITE;
+            pixel.0.color = Color::WHITE;
         }
     }
+    // for (mut sprite, position, chip8) in query.iter_mut() {
+    //     if chip8.screen[position.x][position.y] == 0 {
+    //         println!("Black");
+    //         sprite.color = Color::BLACK;
+    //     } else {
+    //         println!("White");
+    //         sprite.color = Color::WHITE;
+    //     }
+    // }
 }
 
 fn update(mut query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
@@ -120,24 +138,32 @@ impl Chip8 {
         for i in 0..util::CHIP8_FONT.len() {
             ram[i] = util::CHIP8_FONT[i];
         }
-        // self.load
+        Chip8::load(&mut ram);
         return ram;
     }
 
-    // pub fn init(&mut self) {
-    //     self.load_font_into_memory();
-    //     // println!("Done with init.");
-    // }
-
-    fn load(&mut self, data: &Vec<u8>) {
+    fn load(ram: &mut [u8; 4096]) {
         // load data in
-        for i in 0..data.len() {
-            // add data to ram
-            self.ram[0x200 + i] = data[i];
+        println!("{}", std::env::current_dir().unwrap().display());
+        let rom_name = "test_opcode.ch8".to_string();
+        let file = File::open(rom_name).expect("Couldn't find file.");
+        let mut reader = BufReader::new(file);
+        let mut buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut buffer)
+            .expect("Failed to read file.");
+        for i in 0..buffer.len() {
+            ram[0x200 + i] = buffer[i];
         }
+
+        // for i in 0..data.len() {
+        //     // add data to ram
+        //     self.ram[0x200 + i] = data[i];
+        // }
     }
 
     fn tick(&mut self, keys: Res<Input<KeyCode>>) {
+        // println!("tick");
         // do stuff
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
@@ -146,8 +172,8 @@ impl Chip8 {
             self.sound_timer -= 1;
         }
 
-        let opcode: u16 = (self.ram[self.program_counter as usize] << 8) as u16
-            | (self.ram[self.program_counter as usize + 1]) as u16;
+        let opcode: u16 = (self.ram[self.program_counter as usize] as u16) << 8
+            | (self.ram[self.program_counter as usize + 1] as u16);
         self.perform_opcode(opcode, keys);
     }
 
@@ -167,9 +193,10 @@ impl Chip8 {
         );
 
         let nnn = opcode & 0x0FFF;
-        let n: usize = (opcode & 0x000F) as usize;
-        let x: usize = opcode as usize & 0x0F00;
-        let y: usize = opcode as usize & 0x00F0;
+        let n: usize = nibbles.3;
+        // let x: usize = opcode as usize & 0x0F00;
+        let x: usize = nibbles.1 as usize;
+        let y: usize = nibbles.2 as usize;
         let kk: u8 = (opcode & 0x00FF) as u8;
 
         // Perform specific opcode
@@ -313,7 +340,7 @@ impl Chip8 {
 
         // Adds the value kk to the value of register Vx, then stores the result in Vx.
 
-        self.registers[x] = self.registers[x] + kk;
+        self.registers[x] = self.registers[x].wrapping_add(kk);
         self.increment_program_counter(1);
     }
 
