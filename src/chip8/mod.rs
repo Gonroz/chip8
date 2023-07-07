@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 
+mod test;
 mod util;
 
 const PIXEL_SIZE: f32 = 17.0;
@@ -47,7 +48,7 @@ impl Plugin for Chip8Plugin {
         app.add_plugins(DefaultPlugins)
             // .add_startup_system(setup)
             .add_startup_system(setup)
-            .add_systems((update, draw.after(update)));
+            .add_systems((input, update.after(input), draw.after(update)));
     }
 }
 
@@ -90,10 +91,17 @@ fn draw(mut pixel_query: Query<(&mut Sprite, &mut Position)>, chip8_query: Query
     // }
 }
 
-fn update(mut query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
+fn update(mut query: Query<&mut Chip8>) {
     // lala
     // println!("{}", query.is_empty());
-    query.single_mut().tick(keys);
+    query.single_mut().tick();
+}
+
+fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
+    for key in keys.get_pressed() {
+        // lala
+        chip8_query.single_mut().keyboard = util::keycode_to_hex(*key);
+    }
 }
 
 // fn init_chip8(mut query: Query<&mut Chip8>) {
@@ -107,6 +115,7 @@ struct Chip8 {
     registers: [u8; 16],
     i: u16,
     vf: u8,
+    keyboard: u8,
     delay_timer: u8,
     sound_timer: u8,
     program_counter: u16,
@@ -125,6 +134,7 @@ impl Chip8 {
             vf: 0,
             delay_timer: 0,
             sound_timer: 0,
+            keyboard: 0xFF,
             program_counter: 0x200,
             stack_pointer: 0,
             stack: [0; 16],
@@ -162,7 +172,7 @@ impl Chip8 {
         // }
     }
 
-    fn tick(&mut self, keys: Res<Input<KeyCode>>) {
+    fn tick(&mut self) {
         // println!("tick");
         // do stuff
         if self.delay_timer > 0 {
@@ -174,7 +184,7 @@ impl Chip8 {
 
         let opcode: u16 = (self.ram[self.program_counter as usize] as u16) << 8
             | (self.ram[self.program_counter as usize + 1] as u16);
-        self.perform_opcode(opcode, keys);
+        self.perform_opcode(opcode);
     }
 
     // fn load_font_into_memory(&mut self) {
@@ -184,7 +194,7 @@ impl Chip8 {
     //     }
     // }
 
-    fn perform_opcode(&mut self, opcode: u16, keys: Res<Input<KeyCode>>) {
+    fn perform_opcode(&mut self, opcode: u16) {
         let nibbles = (
             (opcode & 0xF000) >> 12 as usize,
             (opcode & 0x0F00) >> 8 as usize,
@@ -224,10 +234,10 @@ impl Chip8 {
             (0xB, _, _, _) => self.opcode_Bnnn(nnn),
             (0xC, _, _, _) => self.opcode_Cxkk(x, kk),
             (0xD, _, _, _) => self.opcode_Dxyn(x, y, n),
-            (0xE, _, 0x9, 0xE) => self.opcode_Ex9E(x, keys),
-            (0xE, _, 0xA, 0x1) => self.opcode_ExA1(x, keys),
+            (0xE, _, 0x9, 0xE) => self.opcode_Ex9E(x),
+            (0xE, _, 0xA, 0x1) => self.opcode_ExA1(x),
             (0xF, _, 0x0, 0x7) => self.opcode_Fx07(x),
-            (0xF, _, 0x0, 0xA) => self.opcode_Fx0A(x, keys),
+            (0xF, _, 0x0, 0xA) => self.opcode_Fx0A(x),
             (0xF, _, 0x1, 0x5) => self.opcode_Fx15(x),
             (0xF, _, 0x1, 0x8) => self.opcode_Fx18(x),
             (0xF, _, 0x1, 0xE) => self.opcode_Fx1E(x),
@@ -295,8 +305,9 @@ impl Chip8 {
 
         if self.registers[x] == kk {
             self.increment_program_counter(2);
+        } else {
+            self.increment_program_counter(1);
         }
-        self.increment_program_counter(1);
     }
 
     // SNE Vx, byte
@@ -308,8 +319,9 @@ impl Chip8 {
 
         if self.registers[x] != kk {
             self.increment_program_counter(2);
+        } else {
+            self.increment_program_counter(1);
         }
-        self.increment_program_counter(1);
     }
 
     fn opcode_5xy0(&mut self, x: usize, y: usize) {
@@ -320,8 +332,9 @@ impl Chip8 {
 
         if self.registers[x] == self.registers[y] {
             self.increment_program_counter(2);
+        } else {
+            self.increment_program_counter(1);
         }
-        self.increment_program_counter(1);
     }
 
     // LD Vx, byte
@@ -532,37 +545,45 @@ impl Chip8 {
         let x: usize = self.registers[x] as usize;
         let y: usize = self.registers[y] as usize;
 
+        // for byte in 0..n {
+        //     // do stuff
+        //     for bit_shift in 0..8 {
+        //         // do something with the bits
+        //         let bit = (self.ram[self.i as usize + byte] >> (7 - bit_shift)) & 0x1;
+        //         let cx = (x + byte) % 64;
+        //         let cy = (y + bit_shift) % 32;
+        //         if self.screen[cy][cx] == 1 && bit == 1 {
+        //             self.screen[cy][cx] = 0;
+        //             self.vf = 1;
+        //         } else {
+        //             self.screen[cy][cx] = bit;
+        //         }
+        //     }
+        // }
+
         for byte in 0..n {
-            // do stuff
-            for bit_shift in 0..8 {
-                // do something with the bits
-                let bit = (self.ram[self.i as usize + byte] >> (7 - bit_shift)) & 0x1;
-                let cx = (x + byte) % 64;
-                let cy = (y + bit_shift) % 32;
-                if self.screen[cx][cy] == 1 && bit == 1 {
-                    self.screen[cx][cy] = 0;
-                    self.vf = 1;
-                } else {
-                    self.screen[cx][cy] = bit;
-                }
+            let y = (self.ram[y] as usize + byte) % 64;
+            for bit in 0..8 {
+                let x = (self.ram[x] as usize + bit) % 32;
+                let color = (self.ram[self.i as usize + byte] >> (7 - bit)) & 1;
+                self.vf |= color & self.screen[y][x];
+                self.screen[y][x] ^= color;
             }
         }
+
         self.increment_program_counter(1);
     }
 
     // SKP Vx
-    fn opcode_Ex9E(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
+    fn opcode_Ex9E(&mut self, x: usize) {
         // Skip next instruction if key with the value of Vx is pressed.
 
         // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the down position,
         // PC is increased by 2.
 
         let mut matching_key_pressed = false;
-        for key in keys.get_pressed() {
-            if self.registers[x] == util::keycode_to_hex(*key) {
-                matching_key_pressed = true;
-                break;
-            }
+        if self.registers[x] == self.keyboard {
+            matching_key_pressed = true;
         }
 
         if matching_key_pressed {
@@ -573,17 +594,14 @@ impl Chip8 {
     }
 
     // SKNP A1
-    fn opcode_ExA1(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
+    fn opcode_ExA1(&mut self, x: usize) {
         // Skip next instruction if key with the value of Vx is not pressed.
 
         // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
 
         let mut matching_key_pressed = false;
-        for key in keys.get_pressed() {
-            if self.registers[x] == util::keycode_to_hex(*key) {
-                matching_key_pressed = true;
-                break;
-            }
+        if self.registers[x] == self.keyboard {
+            matching_key_pressed = true;
         }
 
         if matching_key_pressed {
@@ -604,19 +622,13 @@ impl Chip8 {
     }
 
     // LD Vx, K
-    fn opcode_Fx0A(&mut self, x: usize, keys: Res<Input<KeyCode>>) {
+    fn opcode_Fx0A(&mut self, x: usize) {
         // Wait for a key press, store the value of the key in Vx.
 
         // All execution stops until a key is pressed, then the value of that key is stored in Vx.
 
-        for key in keys.get_pressed() {
-            if util::keycode_to_hex(*key) == 0xFF {
-                continue;
-            } else {
-                self.registers[x] = util::keycode_to_hex(*key);
-                self.increment_program_counter(1);
-                break;
-            }
+        if self.keyboard != 0xFF {
+            self.increment_program_counter(1);
         }
     }
 
