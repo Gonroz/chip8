@@ -98,9 +98,13 @@ fn update(mut query: Query<&mut Chip8>) {
 }
 
 fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
+    chip8_query.single_mut().keyboard = 0xFF;
     for key in keys.get_pressed() {
-        // lala
-        chip8_query.single_mut().keyboard = util::keycode_to_hex(*key);
+        let key_value = util::keycode_to_hex(*key);
+        if key_value != 0xFF {
+            chip8_query.single_mut().keyboard = key_value;
+            break;
+        }
     }
 }
 
@@ -376,7 +380,7 @@ impl Chip8 {
         // then the same bit in the result is also 1.
         // Otherwise, it is 0.
 
-        self.registers[x] = self.registers[x | y];
+        self.registers[x] |= self.registers[y];
         self.increment_program_counter(1);
     }
 
@@ -389,7 +393,7 @@ impl Chip8 {
         // then the same bit in the result is also 1.
         // Otherwise, it is 0.
 
-        self.registers[x] = self.registers[x & y];
+        self.registers[x] &= self.registers[y];
         self.increment_program_counter(1);
     }
 
@@ -402,7 +406,7 @@ impl Chip8 {
         // and if the bits are not both the same, then the corresponding bit in the result is set to 1.
         // Otherwise, it is 0.
 
-        self.registers[x] = self.registers[x ^ y];
+        self.registers[x] ^= self.registers[y];
         self.increment_program_counter(1);
     }
 
@@ -414,10 +418,11 @@ impl Chip8 {
         // If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0.
         // Only the lowest 8 bits of the result are kept, and stored in Vx.
 
+        self.vf = 0;
         if self.registers[x] as u16 + self.registers[y] as u16 > 255 {
             self.vf = 1;
         }
-        self.registers[x] = self.registers[x] + self.registers[y];
+        self.registers[x] = self.registers[x].wrapping_add(self.registers[y]);
         self.increment_program_counter(1);
     }
 
@@ -428,12 +433,11 @@ impl Chip8 {
         // If Vx > Vy, then VF is set to 1, otherwise 0.
         // Then Vy is subtracted from Vx, and the results stored in Vx.
 
-        if self.registers[x] > self.registers[y] {
+        self.vf = 0;
+        if self.registers[y] > self.registers[x] {
             self.vf = 1;
-        } else {
-            self.vf = 0;
         }
-        self.registers[x] = self.registers[x] - self.registers[y];
+        self.registers[x] = self.registers[x].wrapping_sub(self.registers[y]);
         self.increment_program_counter(1);
     }
 
