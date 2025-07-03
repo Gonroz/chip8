@@ -5,6 +5,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 
+// use std::{thread, time};
+
 mod test;
 mod util;
 
@@ -58,13 +60,14 @@ fn setup(mut commands: Commands) {
     commands.spawn(Chip8::new());
     for y in 0..32 {
         for x in 0..64 {
-            // println!("spawn");
+            // println!("x: {} y: {}", x, y);
             commands.spawn(Pixel::new(
                 x as f32 * (PIXEL_SIZE + PIXEL_GAP) - (PIXEL_SIZE + PIXEL_GAP) * 32.0,
                 -(y as f32 * (PIXEL_SIZE + PIXEL_GAP)) + (PIXEL_SIZE + PIXEL_GAP) * 16.0,
                 x,
                 y,
             ));
+            // println!("x: {} y: {}", x, y);
         }
     }
 }
@@ -74,7 +77,8 @@ fn draw(mut pixel_query: Query<(&mut Sprite, &mut Position)>, chip8_query: Query
     // println!("{}", chip8_query.is_empty());
     let chip8 = chip8_query.single();
     for mut pixel in pixel_query.iter_mut() {
-        if chip8.screen[pixel.1.x][pixel.1.y] == 0 {
+        // println!("x: {} y: {}", pixel.1.x, pixel.1.y);
+        if chip8.screen[pixel.1.y][pixel.1.x] == 0 {
             pixel.0.color = Color::BLACK;
         } else {
             pixel.0.color = Color::WHITE;
@@ -125,7 +129,8 @@ struct Chip8 {
     program_counter: u16,
     stack_pointer: usize,
     stack: [u16; 16],
-    screen: [[u8; 32]; 64],
+    screen: [[u8; 64]; 32],
+    shift_quirk_vx_eq_vy: bool,
 }
 
 impl Chip8 {
@@ -142,7 +147,8 @@ impl Chip8 {
             program_counter: 0x200,
             stack_pointer: 0,
             stack: [0; 16],
-            screen: [[0; 32]; 64],
+            screen: [[0; 64]; 32],
+            shift_quirk_vx_eq_vy: true,
         }
     }
 
@@ -159,7 +165,7 @@ impl Chip8 {
     fn load(ram: &mut [u8; 4096]) {
         // load data in
         println!("{}", std::env::current_dir().unwrap().display());
-        let rom_name = "test_opcode.ch8".to_string();
+        let rom_name = "roms/4-flags.ch8".to_string();
         let file = File::open(rom_name).expect("Couldn't find file.");
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
@@ -189,6 +195,8 @@ impl Chip8 {
         let opcode: u16 = (self.ram[self.program_counter as usize] as u16) << 8
             | (self.ram[self.program_counter as usize + 1] as u16);
         self.perform_opcode(opcode);
+
+        // thread::sleep(time::Duration::from_millis(5));
     }
 
     // fn load_font_into_memory(&mut self) {
@@ -230,7 +238,7 @@ impl Chip8 {
             (0x8, _, _, 0x3) => self.opcode_8xy3(x, y),
             (0x8, _, _, 0x4) => self.opcode_8xy4(x, y),
             (0x8, _, _, 0x5) => self.opcode_8xy5(x, y),
-            (0x8, _, _, 0x6) => self.opcode_8xy6(x),
+            (0x8, _, _, 0x6) => self.opcode_8xy6(x, y),
             (0x8, _, _, 0x7) => self.opcode_8xy7(x, y),
             (0x8, _, _, 0xE) => self.opcode_8xyE(x, y),
             (0x9, _, _, 0x0) => self.opcode_9xy0(x, y),
@@ -277,6 +285,12 @@ impl Chip8 {
 
         self.program_counter = self.stack[self.stack_pointer];
         self.stack_pointer = self.stack_pointer - 1;
+        self.increment_program_counter(1);
+
+        // gemini suggestion code below
+        // self.stack_pointer -= 1;
+        // self.program_counter = self.stack[self.stack_pointer];
+        // self.increment_program_counter(1);
     }
 
     // JP addr
@@ -418,11 +432,26 @@ impl Chip8 {
         // If the result is greater than 8 bits (i.e., > 255,) VF is set to 1, otherwise 0.
         // Only the lowest 8 bits of the result are kept, and stored in Vx.
 
-        self.vf = 0;
-        if self.registers[x] as u16 + self.registers[y] as u16 > 255 {
-            self.vf = 1;
-        }
-        self.registers[x] = self.registers[x].wrapping_add(self.registers[y]);
+        // original code
+        // self.registers[0xF] = 0;
+        // if self.registers[x] as u16 + self.registers[y] as u16 > 255 {
+        //     self.registers[0xF] = 1;
+        // }
+        // self.registers[x] = self.registers[x].wrapping_add(self.registers[y]);
+        // self.increment_program_counter(1);
+
+        // let sum: u16 = (self.registers[x] + self.registers[y]) as u16;
+        // self.registers[0xF] = if sum > 0xFF { 1 } else { 0 };
+        // self.registers[x] = (sum & 0xFF) as u8;
+        let sum = self.registers[x].wrapping_add(self.registers[y]);
+        self.registers[0xF] = if self.registers[x] as u16 + self.registers[y] as u16 > 255 {
+            1
+        } else {
+            0
+        };
+        if x != 0xF {
+            self.registers[x] = sum;
+        };
         self.increment_program_counter(1);
     }
 
@@ -433,27 +462,57 @@ impl Chip8 {
         // If Vx > Vy, then VF is set to 1, otherwise 0.
         // Then Vy is subtracted from Vx, and the results stored in Vx.
 
-        self.vf = 0;
-        if self.registers[x] > self.registers[y] {
-            self.vf = 1;
-        }
-        self.registers[x] = self.registers[x].wrapping_sub(self.registers[y]);
+        // self.registers[0xF] = 0;
+        // if self.registers[x] > self.registers[y] {
+        //     self.registers[0xF] = 1;
+        // }
+        // self.registers[x] = self.registers[x].wrapping_sub(self.registers[y]);
+        // self.increment_program_counter(1);
+
+        let difference = self.registers[x].wrapping_sub(self.registers[y]);
+        self.registers[0xF] = if self.registers[x] >= self.registers[y] {
+            1
+        } else {
+            0
+        };
+        if x != 0xF {
+            self.registers[x] = difference;
+        };
         self.increment_program_counter(1);
     }
 
     // SHR Vx {, Vy}
-    fn opcode_8xy6(&mut self, x: usize) {
+    fn opcode_8xy6(&mut self, x: usize, y: usize) {
         // Set Vx = Vx SHR 1.
 
         // If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
         // Then Vx is divided by 2.
+        let original_vx = self.registers[x];
 
-        self.vf = 0;
-        if self.registers[x] % 2 != 0 {
-            self.vf = 1;
+        if self.shift_quirk_vx_eq_vy {
+            self.registers[x] = self.registers[y];
         }
-        self.registers[x] = self.registers[x] / 2;
+
+        // gemini code
+        // let vx_value_before_shift = self.registers[x];
+
+        // self.registers[0xF] = vx_value_before_shift & 0x1;
+        // self.registers[x] >>= 1;
+        // self.increment_program_counter(1);
+
+        self.registers[0xF] = original_vx & 0x1;
+        if x != 0xF {
+            self.registers[x] >>= 1;
+        }
         self.increment_program_counter(1);
+
+        // my original code
+        // self.registers[0xF] = 0;
+        // if self.registers[x] % 2 != 0 {
+        //     self.registers[0xF] = 1;
+        // }
+        // self.registers[x] = self.registers[x] / 2;
+        // self.increment_program_counter(1);
     }
 
     // SUBN  Vx, Vy
@@ -463,11 +522,22 @@ impl Chip8 {
         // If Vy > Vx, then VF is set to 1, otherwise 0.
         // Then Vx is subtracted from Vy, and the results stored in Vx.
 
-        self.vf = 0;
-        if self.registers[y] > self.registers[x] {
-            self.vf = 1;
-        }
-        self.registers[x] = self.registers[y].wrapping_sub(self.registers[x]);
+        // self.registers[0xF] = 0;
+        // if self.registers[y] > self.registers[x] {
+        //     self.registers[0xF] = 1;
+        // }
+        // self.registers[x] = self.registers[y].wrapping_sub(self.registers[x]);
+        // self.increment_program_counter(1);
+
+        let difference = self.registers[y].wrapping_sub(self.registers[x]);
+        self.registers[0xF] = if self.registers[y] >= self.registers[x] {
+            1
+        } else {
+            0
+        };
+        if x != 0xF {
+            self.registers[x] = difference;
+        };
         self.increment_program_counter(1);
     }
 
@@ -478,12 +548,41 @@ impl Chip8 {
         // If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0.
         // Then Vx is multiplied by 2.
 
-        self.vf = 0;
-        if self.registers[x] > 127 {
-            self.vf = 1;
+        let original_vx = self.registers[x];
+
+        if self.shift_quirk_vx_eq_vy {
+            self.registers[x] = self.registers[y];
         }
-        self.registers[x] = self.registers[x].wrapping_mul(2);
+
+        // gemini code
+        // let vx_value_before_shift = self.registers[x];
+
+        // self.registers[0xF] = if (vx_value_before_shift & 0x80) != 0 {
+        //     1
+        // } else {
+        //     0
+        // };
+        // self.registers[x] <<= 1;
+        // self.increment_program_counter(1);
+
+        if original_vx & 0x80 > 0 {
+            self.registers[0xF] = 1;
+        } else {
+            self.registers[0xF] = 0;
+        }
+        // self.registers[x] &= 0x7F;
+        if x != 0xF {
+            self.registers[x] <<= 1;
+        }
         self.increment_program_counter(1);
+
+        // my original code
+        // self.registers[0xF] = 0;
+        // if self.registers[x] > 127 {
+        //     self.registers[0xF] = 1;
+        // }
+        // self.registers[x] = self.registers[x].wrapping_mul(2);
+        // self.increment_program_counter(1);
     }
 
     // SNE Vx, Vy
@@ -544,7 +643,7 @@ impl Chip8 {
         // See instruction 8xy3 for more information on XOR, and section 2.4,
         // Display, for more information on the Chip-8 screen and sprites.
 
-        self.vf = 0;
+        self.registers[0xF] = 0;
         // let cx: usize = self.registers[x] as usize;
         // let cy: usize = self.registers[y] as usize;
 
@@ -557,7 +656,7 @@ impl Chip8 {
         //         let cy = (y + byte) % 64;
         //         if self.screen[cy][cx] == 1 && bit == 1 {
         //             self.screen[cy][cx] = 0;
-        //             self.vf = 1;
+        //             self.registers[0xF] = 1;
         //         } else {
         //             self.screen[cy][cx] = bit;
         //         }
@@ -566,19 +665,19 @@ impl Chip8 {
         // }
 
         for byte in 0..n {
-            let cy = (self.registers[y] as usize + byte) % 64;
+            let cy = (self.registers[y] as usize + byte) % 32;
             for bit in 0..8 {
-                let cx = (self.registers[x] as usize + bit) % 32;
+                let cx = (self.registers[x] as usize + bit) % 64;
                 let color = (self.ram[self.i as usize + byte] >> (7 - bit)) & 1;
-                self.vf |= color & self.screen[cy][cx];
+                self.registers[0xF] |= color & self.screen[cy][cx];
                 self.screen[cy][cx] ^= color;
 
-                println!("X: {}, Y: {}, Val: {}", cx, cy, self.screen[cy][cx]);
+                // println!("X: {}, Y: {}, Val: {}", cx, cy, self.screen[cy][cx]);
             }
         }
 
-        self.screen[0][0] = 1;
-        println!("{}", self.screen[0][0]);
+        // self.screen[0][0] = 1;
+        // println!("{}", self.screen[0][0]);
         self.increment_program_counter(1);
     }
 
@@ -677,7 +776,12 @@ impl Chip8 {
         // The value of I is set to the location in memory for the hexadecimal sprite corresponding to the value of Vx.
         // See section 2.4, Display, for more information on the Chip-8 hexadecimal font.
 
-        self.i = self.ram[x * 5] as u16;
+        // my code
+        // self.i = self.ram[x * 5] as u16;
+        // self.increment_program_counter(1);
+
+        // gemini suggestion below
+        self.i = self.registers[x] as u16 * 5;
         self.increment_program_counter(1);
     }
 
@@ -690,6 +794,7 @@ impl Chip8 {
         self.ram[self.i as usize] = self.registers[x] / 100;
         self.ram[self.i as usize + 1] = self.registers[x] % 100 / 10;
         self.ram[self.i as usize + 2] = self.registers[x] % 10;
+        self.increment_program_counter(1);
     }
 
     // LD [I], Vx
