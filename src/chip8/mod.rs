@@ -434,7 +434,7 @@ impl Chip8 {
         // Then Vy is subtracted from Vx, and the results stored in Vx.
 
         self.vf = 0;
-        if self.registers[y] > self.registers[x] {
+        if self.registers[x] > self.registers[y] {
             self.vf = 1;
         }
         self.registers[x] = self.registers[x].wrapping_sub(self.registers[y]);
@@ -448,10 +448,9 @@ impl Chip8 {
         // If the least-significant bit of Vx is 1, then VF is set to 1, otherwise 0.
         // Then Vx is divided by 2.
 
+        self.vf = 0;
         if self.registers[x] % 2 != 0 {
             self.vf = 1;
-        } else {
-            self.vf = 0;
         }
         self.registers[x] = self.registers[x] / 2;
         self.increment_program_counter(1);
@@ -464,10 +463,11 @@ impl Chip8 {
         // If Vy > Vx, then VF is set to 1, otherwise 0.
         // Then Vx is subtracted from Vy, and the results stored in Vx.
 
+        self.vf = 0;
         if self.registers[y] > self.registers[x] {
             self.vf = 1;
         }
-        self.registers[y] = self.registers[y] - self.registers[x];
+        self.registers[x] = self.registers[y].wrapping_sub(self.registers[x]);
         self.increment_program_counter(1);
     }
 
@@ -478,12 +478,11 @@ impl Chip8 {
         // If the most-significant bit of Vx is 1, then VF is set to 1, otherwise to 0.
         // Then Vx is multiplied by 2.
 
+        self.vf = 0;
         if self.registers[x] > 127 {
             self.vf = 1;
-        } else {
-            self.vf = 0;
         }
-        self.registers[x] = self.registers[x] * 2;
+        self.registers[x] = self.registers[x].wrapping_mul(2);
         self.increment_program_counter(1);
     }
 
@@ -529,7 +528,7 @@ impl Chip8 {
         let mut rng = rand::thread_rng();
         let num = rng.gen_range(0..256) as u8;
         self.registers[x] = num & kk;
-        self.increment_program_counter(2);
+        self.increment_program_counter(1);
     }
 
     // DRW Vx, Vy, nibble
@@ -546,35 +545,40 @@ impl Chip8 {
         // Display, for more information on the Chip-8 screen and sprites.
 
         self.vf = 0;
-        let x: usize = self.registers[x] as usize;
-        let y: usize = self.registers[y] as usize;
+        // let cx: usize = self.registers[x] as usize;
+        // let cy: usize = self.registers[y] as usize;
 
         // for byte in 0..n {
         //     // do stuff
         //     for bit_shift in 0..8 {
         //         // do something with the bits
         //         let bit = (self.ram[self.i as usize + byte] >> (7 - bit_shift)) & 0x1;
-        //         let cx = (x + byte) % 64;
-        //         let cy = (y + bit_shift) % 32;
+        //         let cx = (x + bit_shift) % 32;
+        //         let cy = (y + byte) % 64;
         //         if self.screen[cy][cx] == 1 && bit == 1 {
         //             self.screen[cy][cx] = 0;
         //             self.vf = 1;
         //         } else {
         //             self.screen[cy][cx] = bit;
         //         }
+        //         println!("{}", self.screen[cy][cx]);
         //     }
         // }
 
         for byte in 0..n {
-            let y = (self.ram[y] as usize + byte) % 64;
+            let cy = (self.registers[y] as usize + byte) % 64;
             for bit in 0..8 {
-                let x = (self.ram[x] as usize + bit) % 32;
+                let cx = (self.registers[x] as usize + bit) % 32;
                 let color = (self.ram[self.i as usize + byte] >> (7 - bit)) & 1;
-                self.vf |= color & self.screen[y][x];
-                self.screen[y][x] ^= color;
+                self.vf |= color & self.screen[cy][cx];
+                self.screen[cy][cx] ^= color;
+
+                println!("X: {}, Y: {}, Val: {}", cx, cy, self.screen[cy][cx]);
             }
         }
 
+        self.screen[0][0] = 1;
+        println!("{}", self.screen[0][0]);
         self.increment_program_counter(1);
     }
 
