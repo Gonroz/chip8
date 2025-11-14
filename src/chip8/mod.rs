@@ -165,7 +165,7 @@ impl Chip8 {
     fn load(ram: &mut [u8; 4096]) {
         // load data in
         println!("{}", std::env::current_dir().unwrap().display());
-        let rom_name = "roms/4-flags.ch8".to_string();
+        let rom_name = "roms/3-corax+.ch8".to_string();
         let file = File::open(rom_name).expect("Couldn't find file.");
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
