@@ -1,4 +1,8 @@
+use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+// use bevy::Sprite::*;
+
 use rand::Rng;
 
 use std::fs::File;
@@ -10,6 +14,7 @@ use std::io::Read;
 mod test;
 mod util;
 
+/* --- Deprecated code
 const PIXEL_SIZE: f32 = 17.0;
 const PIXEL_GAP: f32 = 1.0;
 
@@ -41,7 +46,14 @@ impl Pixel {
             position: Position { x, y },
         }
     }
-}
+}*/
+
+const CHIP8_WIDTH: u32 = 64;
+const CHIP8_HEIGHT: u32 = 32;
+const SCREEN_SCALE_FACTOR: f32 = 16.0;
+
+#[derive(Resource)]
+pub struct ScreenHandle(Handle<Image>);
 
 pub struct Chip8Plugin;
 
@@ -49,15 +61,62 @@ impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins)
             // .add_startup_system(setup)
-            .add_startup_system(setup)
-            .add_systems((input, update.after(input), draw.after(update)));
+            .add_systems(Startup, setup)
+            .add_systems(Update, (input, update.after(input), draw.after(update)));
     }
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    // commands.spawn(Camera2dBundle::default());
 
-    commands.spawn(Chip8::new());
+    commands.spawn(Camera2d);
+
+    commands.insert_resource(Chip8::new());
+
+    // Emulated Screen Stuff
+    let data_len = (CHIP8_WIDTH * CHIP8_HEIGHT) as usize;
+    let initial_data: Vec<u8> = vec![0; data_len];
+
+    let size = Extent3d {
+        width: CHIP8_WIDTH,
+        height: CHIP8_HEIGHT,
+        depth_or_array_layers: 1,
+    };
+
+    let image = Image::new(
+        size,
+        TextureDimension::D2,
+        initial_data,
+        TextureFormat::R8Unorm,
+        RenderAssetUsages::all(),
+    );
+
+    let image_handle = images.add(image);
+    commands.insert_resource(ScreenHandle(image_handle.clone()));
+
+    let mut screen = Sprite::from_image(image_handle);
+    screen.custom_size = Some(Vec2::new(
+        CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR,
+        CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR,
+    ));
+
+    commands.spawn(screen);
+
+    // commands.insert_resource(EmulatedScreen {
+    //     sprite: Sprite::from_image(image_handle),
+    // });
+
+    // commands.spawn(screen);
+
+    // commands.spawn(Sprite::new {
+    //     image: image_handle,
+    //     custom_size: Some(Vec2::new(
+    //         CHIP8_WIDTH as f32 * 10.0,
+    //         CHIP8_HEIGHT as f32 * 10.0,
+    //     )),
+    // })
+
+    /* --- Deprecated code ---
     for y in 0..32 {
         for x in 0..64 {
             // println!("x: {} y: {}", x, y);
@@ -69,39 +128,44 @@ fn setup(mut commands: Commands) {
             ));
             // println!("x: {} y: {}", x, y);
         }
-    }
+    }*/
 }
 
-fn draw(mut pixel_query: Query<(&mut Sprite, &mut Position)>, chip8_query: Query<&mut Chip8>) {
-    // lala
-    // println!("{}", chip8_query.is_empty());
-    let chip8 = chip8_query.single();
-    for mut pixel in pixel_query.iter_mut() {
-        // println!("x: {} y: {}", pixel.1.x, pixel.1.y);
-        if chip8.screen[pixel.1.y][pixel.1.x] == 0 {
-            pixel.0.color = Color::BLACK;
-        } else {
-            pixel.0.color = Color::WHITE;
-        }
-    }
-    // for (mut sprite, position, chip8) in query.iter_mut() {
-    //     if chip8.screen[position.x][position.y] == 0 {
-    //         println!("Black");
-    //         sprite.color = Color::BLACK;
-    //     } else {
-    //         println!("White");
-    //         sprite.color = Color::WHITE;
-    //     }
-    // }
+fn draw(mut chip8: ResMut<Chip8>, mut screen_handle: ResMut<ScreenHandle>) {
+    // do something here i guess
 }
 
-fn update(mut query: Query<&mut Chip8>) {
+// fn draw(/*mut pixel_query: Query<(&mut Sprite, &mut Position)>,*/ mut chip8: ResMut<Chip8>) {
+// lala
+// println!("{}", chip8_query.is_empty());
+// for mut pixel in pixel_query.iter_mut() {
+//     // println!("x: {} y: {}", pixel.1.x, pixel.1.y);
+//     if chip8.screen[pixel.1.y][pixel.1.x] == 0 {
+//         pixel.0.color = Color::BLACK;
+//     } else {
+//         pixel.0.color = Color::WHITE;
+//     }
+// }
+// for (mut sprite, position, chip8) in query.iter_mut() {
+//     if chip8.screen[position.x][position.y] == 0 {
+//         println!("Black");
+//         sprite.color = Color::BLACK;
+//     } else {
+//         println!("White");
+//         sprite.color = Color::WHITE;
+//     }
+// }
+// }
+
+fn update(mut chip8: ResMut<Chip8>) {
     // lala
     // println!("{}", query.is_empty());
-    query.single_mut().tick();
+    // query.single_mut().tick();
+    chip8.tick();
 }
 
-fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
+fn input(mut chip8: ResMut<Chip8>, input: Res<ButtonInput<KeyCode>>) {
+    /*
     chip8_query.single_mut().keyboard = 0xFF;
     for key in keys.get_pressed() {
         let key_value = util::keycode_to_hex(*key);
@@ -109,6 +173,15 @@ fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
             chip8_query.single_mut().keyboard = key_value;
             break;
         }
+    }*/
+    // let pressed_keys = input.get_pressed();
+    // chip8.keyboard = match pressed_keys {
+    //     Some(KeyCode) => util::keycode_to_hex(pressed_keys[0]),
+    //     None => 0xFF,
+    // }
+    chip8.keyboard = 0xFF;
+    for key in input.get_pressed() {
+        chip8.keyboard = util::keycode_to_hex(&key);
     }
 }
 
@@ -117,7 +190,12 @@ fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
 //     // query.single_mut().init();
 // }
 
-#[derive(Component)]
+#[derive(Resource)]
+struct EmulatedScreen {
+    sprite: Sprite,
+}
+
+#[derive(Component, Resource)]
 struct Chip8 {
     ram: [u8; 4096],
     registers: [u8; 16],
