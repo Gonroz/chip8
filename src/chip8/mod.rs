@@ -59,7 +59,7 @@ pub struct Chip8Plugin;
 
 impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DefaultPlugins)
+        app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
             // .add_startup_system(setup)
             .add_systems(Startup, setup)
             .add_systems(Update, (input, update.after(input), draw.after(update)));
@@ -68,7 +68,6 @@ impl Plugin for Chip8Plugin {
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // commands.spawn(Camera2dBundle::default());
-
     commands.spawn(Camera2d);
 
     commands.insert_resource(Chip8::new());
@@ -131,31 +130,36 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     }*/
 }
 
-fn draw(mut chip8: ResMut<Chip8>, mut screen_handle: ResMut<ScreenHandle>) {
+fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
     // do something here i guess
-}
+    if !chip8.screen_dirty {
+        return;
+    }
 
-// fn draw(/*mut pixel_query: Query<(&mut Sprite, &mut Position)>,*/ mut chip8: ResMut<Chip8>) {
-// lala
-// println!("{}", chip8_query.is_empty());
-// for mut pixel in pixel_query.iter_mut() {
-//     // println!("x: {} y: {}", pixel.1.x, pixel.1.y);
-//     if chip8.screen[pixel.1.y][pixel.1.x] == 0 {
-//         pixel.0.color = Color::BLACK;
-//     } else {
-//         pixel.0.color = Color::WHITE;
-//     }
-// }
-// for (mut sprite, position, chip8) in query.iter_mut() {
-//     if chip8.screen[position.x][position.y] == 0 {
-//         println!("Black");
-//         sprite.color = Color::BLACK;
-//     } else {
-//         println!("White");
-//         sprite.color = Color::WHITE;
-//     }
-// }
-// }
+    let image = match images.get_mut(&handle.0) {
+        Some(img) => img,
+        None => return,
+    };
+
+    for y in 0..CHIP8_HEIGHT {
+        for x in 0..CHIP8_WIDTH {
+            // let index = ((y * CHIP8_WIDTH) + x) as usize;
+            // let pixel_state = chip8.screen[y as usize][x as usize];
+            // let color_value: u8 = if pixel_state == 1 { 255 } else { 0 };
+            // match image.data {
+            //     Some(data) => data[index] = color_value,
+            //     None => panic!("No data at image"),
+            // }
+            let color_to_set = match chip8.screen[y as usize][x as usize] {
+                1 => Color::WHITE,
+                _ => Color::BLACK,
+            };
+            let _ = image.set_color_at(x, y, color_to_set);
+        }
+    }
+
+    chip8.screen_dirty = false;
+}
 
 fn update(mut chip8: ResMut<Chip8>) {
     // lala
@@ -200,7 +204,6 @@ struct Chip8 {
     ram: [u8; 4096],
     registers: [u8; 16],
     i: u16,
-    vf: u8,
     keyboard: u8,
     delay_timer: u8,
     sound_timer: u8,
@@ -208,6 +211,7 @@ struct Chip8 {
     stack_pointer: usize,
     stack: [u16; 16],
     screen: [[u8; 64]; 32],
+    screen_dirty: bool,
     shift_quirk_vx_eq_vy: bool,
 }
 
@@ -218,7 +222,6 @@ impl Chip8 {
             ram: Chip8::ram_init(),
             registers: [0; 16],
             i: 0,
-            vf: 0,
             delay_timer: 0,
             sound_timer: 0,
             keyboard: 0xFF,
@@ -226,6 +229,7 @@ impl Chip8 {
             stack_pointer: 0,
             stack: [0; 16],
             screen: [[0; 64]; 32],
+            screen_dirty: false,
             shift_quirk_vx_eq_vy: true,
         }
     }
@@ -243,7 +247,7 @@ impl Chip8 {
     fn load(ram: &mut [u8; 4096]) {
         // load data in
         println!("{}", std::env::current_dir().unwrap().display());
-        let rom_name = "roms/3-corax+.ch8".to_string();
+        let rom_name = util::get_rom_to_load();
         let file = File::open(rom_name).expect("Couldn't find file.");
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
@@ -756,6 +760,7 @@ impl Chip8 {
 
         // self.screen[0][0] = 1;
         // println!("{}", self.screen[0][0]);
+        self.screen_dirty = true;
         self.increment_program_counter(1);
     }
 
