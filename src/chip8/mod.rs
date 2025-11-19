@@ -100,34 +100,6 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     ));
 
     commands.spawn(screen);
-
-    // commands.insert_resource(EmulatedScreen {
-    //     sprite: Sprite::from_image(image_handle),
-    // });
-
-    // commands.spawn(screen);
-
-    // commands.spawn(Sprite::new {
-    //     image: image_handle,
-    //     custom_size: Some(Vec2::new(
-    //         CHIP8_WIDTH as f32 * 10.0,
-    //         CHIP8_HEIGHT as f32 * 10.0,
-    //     )),
-    // })
-
-    /* --- Deprecated code ---
-    for y in 0..32 {
-        for x in 0..64 {
-            // println!("x: {} y: {}", x, y);
-            commands.spawn(Pixel::new(
-                x as f32 * (PIXEL_SIZE + PIXEL_GAP) - (PIXEL_SIZE + PIXEL_GAP) * 32.0,
-                -(y as f32 * (PIXEL_SIZE + PIXEL_GAP)) + (PIXEL_SIZE + PIXEL_GAP) * 16.0,
-                x,
-                y,
-            ));
-            // println!("x: {} y: {}", x, y);
-        }
-    }*/
 }
 
 fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
@@ -143,18 +115,13 @@ fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<
 
     for y in 0..CHIP8_HEIGHT {
         for x in 0..CHIP8_WIDTH {
-            // let index = ((y * CHIP8_WIDTH) + x) as usize;
-            // let pixel_state = chip8.screen[y as usize][x as usize];
-            // let color_value: u8 = if pixel_state == 1 { 255 } else { 0 };
-            // match image.data {
-            //     Some(data) => data[index] = color_value,
-            //     None => panic!("No data at image"),
-            // }
             let color_to_set = match chip8.screen[y as usize][x as usize] {
                 1 => Color::WHITE,
                 _ => Color::BLACK,
             };
-            let _ = image.set_color_at(x, y, color_to_set);
+            image
+                .set_color_at(x, y, color_to_set)
+                .expect("Could not set color.");
         }
     }
 
@@ -162,41 +129,14 @@ fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<
 }
 
 fn update(mut chip8: ResMut<Chip8>) {
-    // lala
-    // println!("{}", query.is_empty());
-    // query.single_mut().tick();
     chip8.tick();
 }
 
 fn input(mut chip8: ResMut<Chip8>, input: Res<ButtonInput<KeyCode>>) {
-    /*
-    chip8_query.single_mut().keyboard = 0xFF;
-    for key in keys.get_pressed() {
-        let key_value = util::keycode_to_hex(*key);
-        if key_value != 0xFF {
-            chip8_query.single_mut().keyboard = key_value;
-            break;
-        }
-    }*/
-    // let pressed_keys = input.get_pressed();
-    // chip8.keyboard = match pressed_keys {
-    //     Some(KeyCode) => util::keycode_to_hex(pressed_keys[0]),
-    //     None => 0xFF,
-    // }
     chip8.keyboard = 0xFF;
     for key in input.get_pressed() {
         chip8.keyboard = util::keycode_to_hex(&key);
     }
-}
-
-// fn init_chip8(mut query: Query<&mut Chip8>) {
-//     println!("{}", query.is_empty());
-//     // query.single_mut().init();
-// }
-
-#[derive(Resource)]
-struct EmulatedScreen {
-    sprite: Sprite,
 }
 
 #[derive(Component, Resource)]
@@ -247,8 +187,13 @@ impl Chip8 {
     fn load(ram: &mut [u8; 4096]) {
         // load data in
         println!("{}", std::env::current_dir().unwrap().display());
-        let rom_name = util::get_rom_to_load();
-        let file = File::open(rom_name).expect("Couldn't find file.");
+        // let rom_name = util::get_rom_to_load();
+        // let file = File::open(rom_name).expect("Couldn't find file. (mod.rs)");
+        let rom_path = util::get_rom_to_load();
+        let file = File::open(&rom_path).expect(&format!(
+            "Couldn't find ROM file at absolute path: {}",
+            rom_path
+        ));
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
         reader
@@ -257,16 +202,9 @@ impl Chip8 {
         for i in 0..buffer.len() {
             ram[0x200 + i] = buffer[i];
         }
-
-        // for i in 0..data.len() {
-        //     // add data to ram
-        //     self.ram[0x200 + i] = data[i];
-        // }
     }
 
     fn tick(&mut self) {
-        // println!("tick");
-        // do stuff
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
         }
@@ -280,13 +218,6 @@ impl Chip8 {
 
         // thread::sleep(time::Duration::from_millis(5));
     }
-
-    // fn load_font_into_memory(&mut self) {
-    //     // load font into memory
-    //     for i in 0..util::CHIP8_FONT.len() {
-    //         self.ram[i] = util::CHIP8_FONT[i];
-    //     }
-    // }
 
     fn perform_opcode(&mut self, opcode: u16) {
         let nibbles = (
