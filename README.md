@@ -16,7 +16,7 @@ The keyboard was originally on a 4x4 grid and obviously our modern keyboards are
 
 CHIP-8:
 
-| C8: | C8: | C8: | C8: |
+| C8 | C8 | C8 | C8 |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | C   |
 | 4   | 5   | 6   | D   |
