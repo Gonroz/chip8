@@ -13,20 +13,23 @@ Before you can do anything you need to make sure that you have Rust installed. Y
 In *rom_to_load.txt* you can type in the name of the ROM that you would like to run. Make sure it is the only line of the file and that the *.ch8* file exists inside of the **roms** folder. From there you can perform *cargo run* and the program will compile and boot up. At any point, either before running or during, you can change the name of the file in the txt and then press Ctrl+R in order to reload the ROM so you don't need to perform cargo run again.
 ## Controls
 The keyboard was originally on a 4x4 grid and obviously our modern keyboards are much larger. The keyboard is mapped as follows.
+
 CHIP-8:
 
 | 1   | 2   | 3   | C   |
-| --- | --- | --- | --- |
+| :---: | :---: | :---: | :---: |
 | 4   | 5   | 6   | D   |
 | 7   | 8   | 9   | E   |
 | A   | 0   | B   | F   |
+
 PC Keyboard:
 
 | 1   | 2   | 3   | 4   |
-| --- | --- | --- | --- |
+| :---: | :---: | :---: | :---: |
 | Q   | W   | E   | R   |
 | A   | S   | D   | F   |
 | Z   | X   | C   | V   |
+
 Also, as stated prior at any point you can press *Ctrl+R* to reload/restart the CHIP-8 interpreter.
 ## Next Goal(s)
 The next major goal is to remove the roms_to_load.txt and move it to a config file I'm planning to add. It would allow you to enter the name of the ROM and the name of a theme to change the colors of the display. There will most likely be a coinciding themes folder that will allow you to create your own themes and paste them into the folder easily so that you can share and change them.
