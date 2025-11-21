@@ -14,40 +14,6 @@ use std::io::Read;
 mod test;
 mod util;
 
-/* --- Deprecated code
-const PIXEL_SIZE: f32 = 17.0;
-const PIXEL_GAP: f32 = 1.0;
-
-#[derive(Bundle)]
-struct Pixel {
-    sprite_bundle: SpriteBundle,
-    position: Position,
-}
-
-#[derive(Component)]
-struct Position {
-    x: usize,
-    y: usize,
-}
-
-impl Pixel {
-    fn new(pos_x: f32, pos_y: f32, x: usize, y: usize) -> Self {
-        // println!("New pixel");
-        Pixel {
-            sprite_bundle: SpriteBundle {
-                sprite: Sprite {
-                    color: Color::BLACK,
-                    custom_size: Some(Vec2::new(PIXEL_SIZE, PIXEL_SIZE)),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::new(pos_x, pos_y, 0.0)),
-                ..default()
-            },
-            position: Position { x, y },
-        }
-    }
-}*/
-
 const CHIP8_WIDTH: u32 = 64;
 const CHIP8_HEIGHT: u32 = 32;
 const SCREEN_SCALE_FACTOR: f32 = 16.0;
@@ -67,13 +33,13 @@ impl Plugin for Chip8Plugin {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    // commands.spawn(Camera2dBundle::default());
     commands.spawn(Camera2d);
 
     commands.insert_resource(Chip8::new());
 
     // Emulated Screen Stuff
-    let data_len = (CHIP8_WIDTH * CHIP8_HEIGHT) as usize;
+    // we multiply by 4 because each pixel needs 4 bytes of data: 1 for red, green, blue, and alpha
+    let data_len = ((CHIP8_WIDTH * CHIP8_HEIGHT) * 4) as usize;
     let initial_data: Vec<u8> = vec![0; data_len];
 
     let size = Extent3d {
@@ -86,7 +52,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         size,
         TextureDimension::D2,
         initial_data,
-        TextureFormat::R8Unorm,
+        TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::all(),
     );
 
@@ -133,6 +99,11 @@ fn update(mut chip8: ResMut<Chip8>) {
 }
 
 fn input(mut chip8: ResMut<Chip8>, input: Res<ButtonInput<KeyCode>>) {
+    if input.all_just_released([KeyCode::ControlLeft, KeyCode::KeyR]) {
+        println!("Reload chip8");
+        *chip8 = Chip8::new();
+    }
+
     chip8.keyboard = 0xFF;
     for key in input.get_pressed() {
         chip8.keyboard = util::keycode_to_hex(&key);
