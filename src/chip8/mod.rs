@@ -1,4 +1,8 @@
+use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+// use bevy::Sprite::*;
+
 use rand::Rng;
 
 use std::fs::File;
@@ -10,119 +14,107 @@ use std::io::Read;
 mod test;
 mod util;
 
-const PIXEL_SIZE: f32 = 17.0;
-const PIXEL_GAP: f32 = 1.0;
+const CHIP8_WIDTH: u32 = 64;
+const CHIP8_HEIGHT: u32 = 32;
+const SCREEN_SCALE_FACTOR: f32 = 16.0;
 
-#[derive(Bundle)]
-struct Pixel {
-    sprite_bundle: SpriteBundle,
-    position: Position,
-}
-
-#[derive(Component)]
-struct Position {
-    x: usize,
-    y: usize,
-}
-
-impl Pixel {
-    fn new(pos_x: f32, pos_y: f32, x: usize, y: usize) -> Self {
-        // println!("New pixel");
-        Pixel {
-            sprite_bundle: SpriteBundle {
-                sprite: Sprite {
-                    color: Color::BLACK,
-                    custom_size: Some(Vec2::new(PIXEL_SIZE, PIXEL_SIZE)),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::new(pos_x, pos_y, 0.0)),
-                ..default()
-            },
-            position: Position { x, y },
-        }
-    }
-}
+#[derive(Resource)]
+pub struct ScreenHandle(Handle<Image>);
 
 pub struct Chip8Plugin;
 
 impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DefaultPlugins)
+        app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
             // .add_startup_system(setup)
-            .add_startup_system(setup)
-            .add_systems((input, update.after(input), draw.after(update)));
+            .add_systems(Startup, setup)
+            .add_systems(Update, (input, update.after(input), draw.after(update)));
     }
 }
 
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    commands.spawn(Camera2d);
 
-    commands.spawn(Chip8::new());
-    for y in 0..32 {
-        for x in 0..64 {
-            // println!("x: {} y: {}", x, y);
-            commands.spawn(Pixel::new(
-                x as f32 * (PIXEL_SIZE + PIXEL_GAP) - (PIXEL_SIZE + PIXEL_GAP) * 32.0,
-                -(y as f32 * (PIXEL_SIZE + PIXEL_GAP)) + (PIXEL_SIZE + PIXEL_GAP) * 16.0,
-                x,
-                y,
-            ));
-            // println!("x: {} y: {}", x, y);
+    commands.insert_resource(Chip8::new());
+
+    // Emulated Screen Stuff
+    // we multiply by 4 because each pixel needs 4 bytes of data: 1 for red, green, blue, and alpha
+    let data_len = ((CHIP8_WIDTH * CHIP8_HEIGHT) * 4) as usize;
+    let initial_data: Vec<u8> = vec![0; data_len];
+
+    let size = Extent3d {
+        width: CHIP8_WIDTH,
+        height: CHIP8_HEIGHT,
+        depth_or_array_layers: 1,
+    };
+
+    let image = Image::new(
+        size,
+        TextureDimension::D2,
+        initial_data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::all(),
+    );
+
+    let image_handle = images.add(image);
+    commands.insert_resource(ScreenHandle(image_handle.clone()));
+
+    let mut screen = Sprite::from_image(image_handle);
+    screen.custom_size = Some(Vec2::new(
+        CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR,
+        CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR,
+    ));
+
+    commands.spawn(screen);
+}
+
+fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
+    // do something here i guess
+    if !chip8.screen_dirty {
+        return;
+    }
+
+    let image = match images.get_mut(&handle.0) {
+        Some(img) => img,
+        None => return,
+    };
+
+    for y in 0..CHIP8_HEIGHT {
+        for x in 0..CHIP8_WIDTH {
+            let color_to_set = match chip8.screen[y as usize][x as usize] {
+                1 => Color::WHITE,
+                _ => Color::BLACK,
+            };
+            image
+                .set_color_at(x, y, color_to_set)
+                .expect("Could not set color.");
         }
     }
+
+    chip8.screen_dirty = false;
 }
 
-fn draw(mut pixel_query: Query<(&mut Sprite, &mut Position)>, chip8_query: Query<&mut Chip8>) {
-    // lala
-    // println!("{}", chip8_query.is_empty());
-    let chip8 = chip8_query.single();
-    for mut pixel in pixel_query.iter_mut() {
-        // println!("x: {} y: {}", pixel.1.x, pixel.1.y);
-        if chip8.screen[pixel.1.y][pixel.1.x] == 0 {
-            pixel.0.color = Color::BLACK;
-        } else {
-            pixel.0.color = Color::WHITE;
-        }
+fn update(mut chip8: ResMut<Chip8>) {
+    chip8.tick();
+}
+
+fn input(mut chip8: ResMut<Chip8>, input: Res<ButtonInput<KeyCode>>) {
+    if input.all_just_released([KeyCode::ControlLeft, KeyCode::KeyR]) {
+        println!("Reload chip8");
+        *chip8 = Chip8::new();
     }
-    // for (mut sprite, position, chip8) in query.iter_mut() {
-    //     if chip8.screen[position.x][position.y] == 0 {
-    //         println!("Black");
-    //         sprite.color = Color::BLACK;
-    //     } else {
-    //         println!("White");
-    //         sprite.color = Color::WHITE;
-    //     }
-    // }
-}
 
-fn update(mut query: Query<&mut Chip8>) {
-    // lala
-    // println!("{}", query.is_empty());
-    query.single_mut().tick();
-}
-
-fn input(mut chip8_query: Query<&mut Chip8>, keys: Res<Input<KeyCode>>) {
-    chip8_query.single_mut().keyboard = 0xFF;
-    for key in keys.get_pressed() {
-        let key_value = util::keycode_to_hex(*key);
-        if key_value != 0xFF {
-            chip8_query.single_mut().keyboard = key_value;
-            break;
-        }
+    chip8.keyboard = 0xFF;
+    for key in input.get_pressed() {
+        chip8.keyboard = util::keycode_to_hex(&key);
     }
 }
 
-// fn init_chip8(mut query: Query<&mut Chip8>) {
-//     println!("{}", query.is_empty());
-//     // query.single_mut().init();
-// }
-
-#[derive(Component)]
+#[derive(Component, Resource)]
 struct Chip8 {
     ram: [u8; 4096],
     registers: [u8; 16],
     i: u16,
-    vf: u8,
     keyboard: u8,
     delay_timer: u8,
     sound_timer: u8,
@@ -130,6 +122,7 @@ struct Chip8 {
     stack_pointer: usize,
     stack: [u16; 16],
     screen: [[u8; 64]; 32],
+    screen_dirty: bool,
     shift_quirk_vx_eq_vy: bool,
 }
 
@@ -140,7 +133,6 @@ impl Chip8 {
             ram: Chip8::ram_init(),
             registers: [0; 16],
             i: 0,
-            vf: 0,
             delay_timer: 0,
             sound_timer: 0,
             keyboard: 0xFF,
@@ -148,6 +140,7 @@ impl Chip8 {
             stack_pointer: 0,
             stack: [0; 16],
             screen: [[0; 64]; 32],
+            screen_dirty: false,
             shift_quirk_vx_eq_vy: true,
         }
     }
@@ -165,8 +158,13 @@ impl Chip8 {
     fn load(ram: &mut [u8; 4096]) {
         // load data in
         println!("{}", std::env::current_dir().unwrap().display());
-        let rom_name = "roms/3-corax+.ch8".to_string();
-        let file = File::open(rom_name).expect("Couldn't find file.");
+        // let rom_name = util::get_rom_to_load();
+        // let file = File::open(rom_name).expect("Couldn't find file. (mod.rs)");
+        let rom_path = util::get_rom_to_load();
+        let file = File::open(&rom_path).expect(&format!(
+            "Couldn't find ROM file at absolute path: {}",
+            rom_path
+        ));
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
         reader
@@ -175,16 +173,9 @@ impl Chip8 {
         for i in 0..buffer.len() {
             ram[0x200 + i] = buffer[i];
         }
-
-        // for i in 0..data.len() {
-        //     // add data to ram
-        //     self.ram[0x200 + i] = data[i];
-        // }
     }
 
     fn tick(&mut self) {
-        // println!("tick");
-        // do stuff
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
         }
@@ -198,13 +189,6 @@ impl Chip8 {
 
         // thread::sleep(time::Duration::from_millis(5));
     }
-
-    // fn load_font_into_memory(&mut self) {
-    //     // load font into memory
-    //     for i in 0..util::CHIP8_FONT.len() {
-    //         self.ram[i] = util::CHIP8_FONT[i];
-    //     }
-    // }
 
     fn perform_opcode(&mut self, opcode: u16) {
         let nibbles = (
@@ -678,6 +662,7 @@ impl Chip8 {
 
         // self.screen[0][0] = 1;
         // println!("{}", self.screen[0][0]);
+        self.screen_dirty = true;
         self.increment_program_counter(1);
     }
 
