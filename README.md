@@ -14,7 +14,7 @@ In *rom_to_load.txt* you can type in the name of the ROM that you would like to 
 ## Controls
 The keyboard was originally on a 4x4 grid and obviously our modern keyboards are much larger. The keyboard is mapped as follows.
 
-| CHIP-8: |
+| CHIP-8: | CHIP-8: | CHIP-8: | CHIP-8: |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | C   |
 | 4   | 5   | 6   | D   |
@@ -22,7 +22,7 @@ The keyboard was originally on a 4x4 grid and obviously our modern keyboards are
 | A   | 0   | B   | F   |
 
 
-| PC Keyboard |
+| PC Keyboard | PC Keyboard | PC Keyboard | PC Keyboard |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | 4   |
 | Q   | W   | E   | R   |
