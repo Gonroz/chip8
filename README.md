@@ -22,7 +22,7 @@ The keyboard was originally on a 4x4 grid and obviously our modern keyboards are
 | A   | 0   | B   | F   |
 
 
-| PC Keyboard | PC Keyboard | PC Keyboard | PC Keyboard |
+| PC | PC | PC | PC |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | 4   |
 | Q   | W   | E   | R   |
