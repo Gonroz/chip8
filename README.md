@@ -1,6 +1,7 @@
 # CHIP-8 Interpreter
 ## This is a relatively simple CHIP-8 interpreter written entirely in Rust using Bevy.
-## Screenshot here
+<img width="1402" height="879" alt="Captura desde 2025-11-21 00-29-57" src="https://github.com/user-attachments/assets/2615dad5-b358-4bcc-b357-231e078ec4c2" />
+
 ## About
 This project is one that has been a labor of love and attention (or lack-there-of) for the past couple years. I set out to teach myself Rust and gain more knowledge on lower level programming by making a CHIP-8 interpreter. At one point I got stuck and decided to set it aside to focus on my college studies. I always wanted to return but life always finds a way to prevent that. In the summer of 2025 I came back and finally fixed the bugs that prevented proper function. Then in the following November I came back to update the code to modern practices and had to refactor a few things since Bevy had changed quite a bit. It is now an ongoing project while I take the chance to gain more experience developing a program.
 ## What is a CHIP-8 interpreter?
@@ -14,15 +15,18 @@ In *rom_to_load.txt* you can type in the name of the ROM that you would like to 
 ## Controls
 The keyboard was originally on a 4x4 grid and obviously our modern keyboards are much larger. The keyboard is mapped as follows.
 
-| CHIP-8: | CHIP-8: | CHIP-8: | CHIP-8: |
+CHIP-8:
+
+| C8 | C8 | C8 | C8 |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | C   |
 | 4   | 5   | 6   | D   |
 | 7   | 8   | 9   | E   |
 | A   | 0   | B   | F   |
 
+PC Keyboard:
 
-| PC Keyboard | PC Keyboard | PC Keyboard | PC Keyboard |
+| PC | PC | PC | PC |
 | :---: | :---: | :---: | :---: |
 | 1   | 2   | 3   | 4   |
 | Q   | W   | E   | R   |
