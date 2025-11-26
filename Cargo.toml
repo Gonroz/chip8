@@ -8,3 +8,5 @@ edition = "2024"
 [dependencies]
 bevy = "0.17.0"
 rand = "0.8.5"
+serde = "1.0.228"
+toml = "0.9.8"
