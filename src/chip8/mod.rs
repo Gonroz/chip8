@@ -33,6 +33,8 @@ impl Plugin for Chip8Plugin {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    commands.insert_resource(util::Config::new());
+
     commands.spawn(Camera2d);
 
     commands.insert_resource(Chip8::new());
@@ -69,6 +71,20 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 }
 
 fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
+    let theme: util::Theme = util::get_theme("yessir");
+    let foreground_color: Color = Color::srgba_u8(
+        theme.foreground[0],
+        theme.foreground[1],
+        theme.foreground[2],
+        255,
+    );
+    let background_color: Color = Color::srgba_u8(
+        theme.background[0],
+        theme.background[1],
+        theme.background[2],
+        255,
+    );
+
     // do something here i guess
     if !chip8.screen_dirty {
         return;
@@ -82,8 +98,8 @@ fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<
     for y in 0..CHIP8_HEIGHT {
         for x in 0..CHIP8_WIDTH {
             let color_to_set = match chip8.screen[y as usize][x as usize] {
-                1 => Color::WHITE,
-                _ => Color::BLACK,
+                1 => foreground_color,
+                _ => background_color,
             };
             image
                 .set_color_at(x, y, color_to_set)

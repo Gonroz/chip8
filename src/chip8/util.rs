@@ -56,13 +56,50 @@ pub fn get_rom_to_load() -> String {
     return final_path;
 }
 
-#[derive(Deserialize)]
-pub struct Theme {
-    foreground: [u8; 3],
-    background: [u8; 3],
+#[derive(Deserialize, Resource)]
+pub struct Config {
+    rom: String,
+    theme: String,
 }
 
-pub fn get_theme() -> Theme {
+impl Config {
+    pub fn new() -> Self {
+        return get_config();
+    }
+}
+
+pub fn get_config() -> Config {
+    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR not set. Are you running this via cargo?");
+    let path = PathBuf::from(manifest_dir);
+
+    // Construct the absolute path to rom_to_load.txt (in the root)
+    let mut config_path = path.clone();
+    config_path.push("config.toml");
+
+    let config_file_contents = fs::read_to_string(&config_path).expect(&format!(
+        "Can't find config at path: {}",
+        config_path.display()
+    ));
+
+    let config: Config =
+        toml::from_str(&config_file_contents).expect("Failed to deserialize the config toml file.");
+    return config;
+}
+
+#[derive(Deserialize, Resource)]
+pub struct Theme {
+    pub foreground: [u8; 3],
+    pub background: [u8; 3],
+}
+
+// impl Theme {
+//     pub fn new() -> {
+//         return get_theme();
+//     }
+// }
+
+pub fn get_theme(theme_name: &str) -> Theme {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")
         .expect("CARGO_MANIFEST_DIR not set. Are you running this via cargo?");
     let path = PathBuf::from(manifest_dir);
@@ -70,7 +107,7 @@ pub fn get_theme() -> Theme {
     // Construct the absolute path to rom_to_load.txt (in the root)
     let mut theme_path = path.clone();
     theme_path.push("themes");
-    theme_path.push("yessir.toml");
+    theme_path.push(format!("{}{}", theme_name, ".toml"));
 
     // Read the file to get the ROM filename
     let theme_file_contents = fs::read_to_string(&theme_path).expect(&format!(
@@ -119,5 +156,10 @@ mod tests {
         assert_eq!(theme.background[0], 52 as u8);
         assert_eq!(theme.background[1], 48 as u8);
         assert_eq!(theme.background[2], 56 as u8);
+    }
+
+    #[test]
+    fn test_config() {
+        let config: Config = get_config();
     }
 }
