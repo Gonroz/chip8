@@ -1,9 +1,7 @@
 use bevy::prelude::*;
-use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use toml;
 
 pub fn keycode_to_hex(keycode: &KeyCode) -> u8 {
     match keycode {
@@ -56,71 +54,6 @@ pub fn get_rom_to_load() -> String {
     return final_path;
 }
 
-#[derive(Deserialize, Resource)]
-pub struct Config {
-    rom: String,
-    theme: String,
-}
-
-impl Config {
-    pub fn new() -> Self {
-        return get_config();
-    }
-}
-
-pub fn get_config() -> Config {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set. Are you running this via cargo?");
-    let path = PathBuf::from(manifest_dir);
-
-    // Construct the absolute path to rom_to_load.txt (in the root)
-    let mut config_path = path.clone();
-    config_path.push("config.toml");
-
-    let config_file_contents = fs::read_to_string(&config_path).expect(&format!(
-        "Can't find config at path: {}",
-        config_path.display()
-    ));
-
-    let config: Config =
-        toml::from_str(&config_file_contents).expect("Failed to deserialize the config toml file.");
-    return config;
-}
-
-#[derive(Deserialize, Resource)]
-pub struct Theme {
-    pub foreground: [u8; 3],
-    pub background: [u8; 3],
-}
-
-// impl Theme {
-//     pub fn new() -> {
-//         return get_theme();
-//     }
-// }
-
-pub fn get_theme(theme_name: &str) -> Theme {
-    let manifest_dir = env::var("CARGO_MANIFEST_DIR")
-        .expect("CARGO_MANIFEST_DIR not set. Are you running this via cargo?");
-    let path = PathBuf::from(manifest_dir);
-
-    // Construct the absolute path to rom_to_load.txt (in the root)
-    let mut theme_path = path.clone();
-    theme_path.push("themes");
-    theme_path.push(format!("{}{}", theme_name, ".toml"));
-
-    // Read the file to get the ROM filename
-    let theme_file_contents = fs::read_to_string(&theme_path).expect(&format!(
-        "Can't read theme at path: {}",
-        theme_path.display()
-    ));
-
-    // config to Theme struct
-    let theme: Theme =
-        toml::from_str(&theme_file_contents).expect("Failed to deserialize the theme's toml file.");
-    return theme;
-}
-
 pub const CHIP8_FONT: [u8; 80] = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
@@ -139,27 +72,3 @@ pub const CHIP8_FONT: [u8; 80] = [
     0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
     0xF0, 0x80, 0xF0, 0x80, 0x80, // F
 ];
-
-// Testing
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_theme() {
-        let theme: Theme = get_theme();
-        // foreground
-        assert_eq!(theme.foreground[0], 163 as u8);
-        assert_eq!(theme.foreground[1], 114 as u8);
-        assert_eq!(theme.foreground[2], 28 as u8);
-        // background
-        assert_eq!(theme.background[0], 52 as u8);
-        assert_eq!(theme.background[1], 48 as u8);
-        assert_eq!(theme.background[2], 56 as u8);
-    }
-
-    #[test]
-    fn test_config() {
-        let config: Config = get_config();
-    }
-}

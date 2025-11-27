@@ -11,7 +11,13 @@ use std::io::Read;
 
 // use std::{thread, time};
 
+mod config;
+use config::Config;
+
 mod test;
+mod theme;
+use theme::Theme;
+
 mod util;
 
 const CHIP8_WIDTH: u32 = 64;
@@ -33,7 +39,11 @@ impl Plugin for Chip8Plugin {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    commands.insert_resource(util::Config::new());
+    // First create a Config, then get the Theme
+    let config: Config = Config::new();
+    let theme: Theme = Theme::new(&config.theme);
+    commands.insert_resource(config);
+    commands.insert_resource(theme);
 
     commands.spawn(Camera2d);
 
@@ -70,22 +80,23 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(screen);
 }
 
-fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
-    let theme: util::Theme = util::get_theme("yessir");
-    let foreground_color: Color = Color::srgba_u8(
+fn draw(
+    mut chip8: ResMut<Chip8>,
+    handle: Res<ScreenHandle>,
+    mut images: ResMut<Assets<Image>>,
+    theme: Res<Theme>,
+) {
+    let foreground_color: Color = Color::srgb_u8(
         theme.foreground[0],
         theme.foreground[1],
         theme.foreground[2],
-        255,
     );
-    let background_color: Color = Color::srgba_u8(
+    let background_color: Color = Color::srgb_u8(
         theme.background[0],
         theme.background[1],
         theme.background[2],
-        255,
     );
 
-    // do something here i guess
     if !chip8.screen_dirty {
         return;
     }
