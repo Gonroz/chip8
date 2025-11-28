@@ -42,12 +42,15 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // First create a Config, then get the Theme
     let config: Config = Config::new();
     let theme: Theme = Theme::new(&config.theme);
+    let rom_to_load: String = config.get_rom_path();
+    // let chip8: Chip8 = Chip8::new_from_rom();
     commands.insert_resource(config);
     commands.insert_resource(theme);
 
     commands.spawn(Camera2d);
 
-    commands.insert_resource(Chip8::new());
+    // commands.insert_resource(Chip8::new());
+    commands.insert_resource(Chip8::new_from_rom(&rom_to_load));
 
     // Emulated Screen Stuff
     // we multiply by 4 because each pixel needs 4 bytes of data: 1 for red, green, blue, and alpha
@@ -86,6 +89,9 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     theme: Res<Theme>,
 ) {
+    // TODO: it would probably be smarter to move these color settings to setup
+    // or something so that we aren't recreating the colors every draw.
+    // It really only needs to be done once (or twice if hot reload is done).
     let foreground_color: Color = Color::srgb_u8(
         theme.foreground[0],
         theme.foreground[1],
@@ -172,6 +178,23 @@ impl Chip8 {
         }
     }
 
+    fn new_from_rom(rom: &str) -> Self {
+        Chip8 {
+            ram: Chip8::ram_init_from_rom(rom),
+            registers: [0; 16],
+            i: 0,
+            delay_timer: 0,
+            sound_timer: 0,
+            keyboard: 0xFF,
+            program_counter: 0x200,
+            stack_pointer: 0,
+            stack: [0; 16],
+            screen: [[0; 64]; 32],
+            screen_dirty: false,
+            shift_quirk_vx_eq_vy: true,
+        }
+    }
+
     fn ram_init() -> [u8; 4096] {
         let mut ram: [u8; 4096] = [0; 4096];
         // Load font into memory
@@ -179,6 +202,16 @@ impl Chip8 {
             ram[i] = util::CHIP8_FONT[i];
         }
         Chip8::load(&mut ram);
+        return ram;
+    }
+
+    fn ram_init_from_rom(rom_path: &str) -> [u8; 4096] {
+        let mut ram: [u8; 4096] = [0; 4096];
+        // Load font into memory
+        for i in 0..util::CHIP8_FONT.len() {
+            ram[i] = util::CHIP8_FONT[i];
+        }
+        Chip8::load_from_path(&mut ram, rom_path);
         return ram;
     }
 
@@ -192,6 +225,19 @@ impl Chip8 {
             "Couldn't find ROM file at absolute path: {}",
             rom_path
         ));
+        let mut reader = BufReader::new(file);
+        let mut buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut buffer)
+            .expect("Failed to read file.");
+        for i in 0..buffer.len() {
+            ram[0x200 + i] = buffer[i];
+        }
+    }
+
+    fn load_from_path(ram: &mut [u8; 4096], rom_path: &str) {
+        let file =
+            File::open(rom_path).expect(&format!("Couldn't find ROM file at path: {}", rom_path));
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
         reader

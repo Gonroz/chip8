@@ -17,6 +17,27 @@ impl Config {
     pub fn new() -> Self {
         return get_config();
     }
+
+    pub fn get_rom_path(&self) -> String {
+        // Start the path based off where cargo run is done
+        let manifest_dir = env::var("CARGO_MANIFEST_DIR")
+            .expect("CARGO_MANIFEST_DIR not set. Are you running this via cargo?");
+        let path = PathBuf::from(manifest_dir);
+
+        // Construct the absolute path to the config.toml
+        let mut rom_folder = path.clone();
+        rom_folder.push("roms");
+
+        let mut rom_path = rom_folder.clone();
+        // rom_path.push("{self.ram}.toml");
+        let rom: &str = &self.rom;
+        rom_path.push(format!("{rom}.ch8"));
+
+        return rom_path
+            .to_str()
+            .expect("Failed to convert the following path to a string: {rom_path}")
+            .to_string();
+    }
 }
 
 pub fn get_config() -> Config {
