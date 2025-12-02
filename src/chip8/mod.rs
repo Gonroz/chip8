@@ -11,7 +11,13 @@ use std::io::Read;
 
 // use std::{thread, time};
 
+mod config;
+use config::Config;
+
 mod test;
+mod theme;
+use theme::Theme;
+
 mod util;
 
 const CHIP8_WIDTH: u32 = 64;
@@ -19,7 +25,18 @@ const CHIP8_HEIGHT: u32 = 32;
 const SCREEN_SCALE_FACTOR: f32 = 16.0;
 
 #[derive(Resource)]
-pub struct ScreenHandle(Handle<Image>);
+struct ScreenHandle(Handle<Image>);
+
+#[derive(Resource)]
+struct ThemeColors {
+    foreground_color: Color,
+    background_color: Color,
+}
+
+#[derive(Resource)]
+struct ResetFlag {
+    reset: bool,
+}
 
 pub struct Chip8Plugin;
 
@@ -28,14 +45,48 @@ impl Plugin for Chip8Plugin {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
             // .add_startup_system(setup)
             .add_systems(Startup, setup)
-            .add_systems(Update, (input, update.after(input), draw.after(update)));
+            .add_systems(
+                Update,
+                (
+                    input,
+                    reset.after(input),
+                    update.after(reset),
+                    draw.after(update),
+                ),
+            );
     }
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+    // First create a Config, then get the Theme
+    let config: Config = Config::new();
+    let theme: Theme = Theme::new(&config.theme);
+    let rom_to_load: String = config.get_rom_path();
+    // let chip8: Chip8 = Chip8::new_from_rom();
+    commands.insert_resource(config);
+
+    let theme_colors: ThemeColors = ThemeColors {
+        foreground_color: Color::srgb_u8(
+            theme.foreground[0],
+            theme.foreground[1],
+            theme.foreground[2],
+        ),
+        background_color: Color::srgb_u8(
+            theme.background[0],
+            theme.background[1],
+            theme.background[2],
+        ),
+    };
+    commands.insert_resource(theme);
+    commands.insert_resource(theme_colors);
+
+    let reset_flag: ResetFlag = ResetFlag { reset: false };
+    commands.insert_resource(reset_flag);
+
     commands.spawn(Camera2d);
 
-    commands.insert_resource(Chip8::new());
+    // commands.insert_resource(Chip8::new());
+    commands.insert_resource(Chip8::new_from_rom(&rom_to_load));
 
     // Emulated Screen Stuff
     // we multiply by 4 because each pixel needs 4 bytes of data: 1 for red, green, blue, and alpha
@@ -68,8 +119,26 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(screen);
 }
 
-fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<Assets<Image>>) {
-    // do something here i guess
+fn draw(
+    mut chip8: ResMut<Chip8>,
+    handle: Res<ScreenHandle>,
+    mut images: ResMut<Assets<Image>>,
+    theme_colors: Res<ThemeColors>,
+) {
+    // TODO: it would probably be smarter to move these color settings to setup
+    // or something so that we aren't recreating the colors every draw.
+    // It really only needs to be done once (or twice if hot reload is done).
+    // let foreground_color: Color = Color::srgb_u8(
+    //     theme.foreground[0],
+    //     theme.foreground[1],
+    //     theme.foreground[2],
+    // );
+    // let background_color: Color = Color::srgb_u8(
+    //     theme.background[0],
+    //     theme.background[1],
+    //     theme.background[2],
+    // );
+
     if !chip8.screen_dirty {
         return;
     }
@@ -82,8 +151,8 @@ fn draw(mut chip8: ResMut<Chip8>, handle: Res<ScreenHandle>, mut images: ResMut<
     for y in 0..CHIP8_HEIGHT {
         for x in 0..CHIP8_WIDTH {
             let color_to_set = match chip8.screen[y as usize][x as usize] {
-                1 => Color::WHITE,
-                _ => Color::BLACK,
+                1 => theme_colors.foreground_color,
+                _ => theme_colors.background_color,
             };
             image
                 .set_color_at(x, y, color_to_set)
@@ -98,16 +167,54 @@ fn update(mut chip8: ResMut<Chip8>) {
     chip8.tick();
 }
 
-fn input(mut chip8: ResMut<Chip8>, input: Res<ButtonInput<KeyCode>>) {
+fn input(
+    mut chip8: ResMut<Chip8>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut reset_flag: ResMut<ResetFlag>,
+) {
     if input.all_just_released([KeyCode::ControlLeft, KeyCode::KeyR]) {
-        println!("Reload chip8");
-        *chip8 = Chip8::new();
+        reset_flag.reset = true;
     }
 
     chip8.keyboard = 0xFF;
     for key in input.get_pressed() {
         chip8.keyboard = util::keycode_to_hex(&key);
     }
+}
+
+fn reset(
+    mut chip8: ResMut<Chip8>,
+    mut config: ResMut<Config>,
+    mut theme: ResMut<Theme>,
+    mut theme_colors: ResMut<ThemeColors>,
+    mut reset_flag: ResMut<ResetFlag>,
+) {
+    if reset_flag.reset == false {
+        return;
+    }
+
+    let temp_config: Config = Config::new();
+    // let rom: String = temp_config.rom.clone();
+    let temp_theme: Theme = Theme::new(&temp_config.theme);
+    *config = temp_config;
+    *theme = temp_theme;
+    let temp_theme_colors: ThemeColors = ThemeColors {
+        foreground_color: Color::srgb_u8(
+            theme.foreground[0],
+            theme.foreground[1],
+            theme.foreground[2],
+        ),
+        background_color: Color::srgb_u8(
+            theme.background[0],
+            theme.background[1],
+            theme.background[2],
+        ),
+    };
+    *theme_colors = temp_theme_colors;
+
+    *chip8 = Chip8::new_from_rom(&config.get_rom_path());
+    reset_flag.reset = false;
+    // blah
 }
 
 #[derive(Component, Resource)]
@@ -145,6 +252,23 @@ impl Chip8 {
         }
     }
 
+    fn new_from_rom(rom: &str) -> Self {
+        Chip8 {
+            ram: Chip8::ram_init_from_rom(rom),
+            registers: [0; 16],
+            i: 0,
+            delay_timer: 0,
+            sound_timer: 0,
+            keyboard: 0xFF,
+            program_counter: 0x200,
+            stack_pointer: 0,
+            stack: [0; 16],
+            screen: [[0; 64]; 32],
+            screen_dirty: false,
+            shift_quirk_vx_eq_vy: true,
+        }
+    }
+
     fn ram_init() -> [u8; 4096] {
         let mut ram: [u8; 4096] = [0; 4096];
         // Load font into memory
@@ -152,6 +276,16 @@ impl Chip8 {
             ram[i] = util::CHIP8_FONT[i];
         }
         Chip8::load(&mut ram);
+        return ram;
+    }
+
+    fn ram_init_from_rom(rom_path: &str) -> [u8; 4096] {
+        let mut ram: [u8; 4096] = [0; 4096];
+        // Load font into memory
+        for i in 0..util::CHIP8_FONT.len() {
+            ram[i] = util::CHIP8_FONT[i];
+        }
+        Chip8::load_from_path(&mut ram, rom_path);
         return ram;
     }
 
@@ -165,6 +299,19 @@ impl Chip8 {
             "Couldn't find ROM file at absolute path: {}",
             rom_path
         ));
+        let mut reader = BufReader::new(file);
+        let mut buffer: Vec<u8> = Vec::new();
+        reader
+            .read_to_end(&mut buffer)
+            .expect("Failed to read file.");
+        for i in 0..buffer.len() {
+            ram[0x200 + i] = buffer[i];
+        }
+    }
+
+    fn load_from_path(ram: &mut [u8; 4096], rom_path: &str) {
+        let file =
+            File::open(rom_path).expect(&format!("Couldn't find ROM file at path: {}", rom_path));
         let mut reader = BufReader::new(file);
         let mut buffer: Vec<u8> = Vec::new();
         reader

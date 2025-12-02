@@ -1,6 +1,6 @@
 [package]
 name = "chip8"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,3 +8,5 @@ edition = "2024"
 [dependencies]
 bevy = "0.17.0"
 rand = "0.8.5"
+serde = "1.0.228"
+toml = "0.9.8"

@@ -1,0 +1,3 @@
+# values are read from array in order Red, Green, Blue
+foreground = [212, 0, 162]
+background = [61, 27, 64]
