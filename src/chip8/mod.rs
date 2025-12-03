@@ -168,6 +168,9 @@ fn update(mut chip8: ResMut<Chip8>, config: Res<Config>) {
     for _ in 0..config.instructions_per_second {
         chip8.tick();
     }
+
+    // make sure to reset input so it can be gotten again
+    chip8.keyboard.clear();
 }
 
 fn input(
@@ -179,9 +182,8 @@ fn input(
         reset_flag.reset = true;
     }
 
-    chip8.keyboard = 0xFF;
     for key in input.get_pressed() {
-        chip8.keyboard = util::keycode_to_hex(&key);
+        chip8.keyboard.push(util::keycode_to_hex(&key));
     }
 }
 
@@ -225,7 +227,7 @@ struct Chip8 {
     ram: [u8; 4096],
     registers: [u8; 16],
     i: u16,
-    keyboard: u8,
+    keyboard: Vec<u8>,
     delay_timer: u8,
     sound_timer: u8,
     program_counter: u16,
@@ -245,7 +247,7 @@ impl Chip8 {
             i: 0,
             delay_timer: 0,
             sound_timer: 0,
-            keyboard: 0xFF,
+            keyboard: vec![],
             program_counter: 0x200,
             stack_pointer: 0,
             stack: [0; 16],
@@ -262,7 +264,7 @@ impl Chip8 {
             i: 0,
             delay_timer: 0,
             sound_timer: 0,
-            keyboard: 0xFF,
+            keyboard: vec![],
             program_counter: 0x200,
             stack_pointer: 0,
             stack: [0; 16],
@@ -824,8 +826,10 @@ impl Chip8 {
         // PC is increased by 2.
 
         let mut matching_key_pressed = false;
-        if self.registers[x] == self.keyboard {
-            matching_key_pressed = true;
+        for key in self.keyboard.iter() {
+            if self.registers[x] == key.clone() {
+                matching_key_pressed = true;
+            }
         }
 
         if matching_key_pressed {
@@ -842,8 +846,10 @@ impl Chip8 {
         // Checks the keyboard, and if the key corresponding to the value of Vx is currently in the up position, PC is increased by 2.
 
         let mut matching_key_pressed = false;
-        if self.registers[x] == self.keyboard {
-            matching_key_pressed = true;
+        for key in self.keyboard.iter() {
+            if self.registers[x] == key.clone() {
+                matching_key_pressed = true;
+            }
         }
 
         if matching_key_pressed {
@@ -869,7 +875,7 @@ impl Chip8 {
 
         // All execution stops until a key is pressed, then the value of that key is stored in Vx.
 
-        if self.keyboard != 0xFF {
+        if !self.keyboard.is_empty() {
             self.increment_program_counter(1);
         }
     }
