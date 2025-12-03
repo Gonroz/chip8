@@ -165,7 +165,7 @@ fn update(mut chip8: ResMut<Chip8>, config: Res<Config>) {
         chip8.sound_timer = chip8.sound_timer - 1;
     }
 
-    for _ in 0..config.ips {
+    for _ in 0..config.instructions_per_second {
         chip8.tick();
     }
 }
