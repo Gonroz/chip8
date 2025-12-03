@@ -11,6 +11,7 @@ use toml;
 pub struct Config {
     pub rom: String,
     pub theme: String,
+    pub instructions_per_second: u32,
 }
 
 impl Config {
