@@ -45,15 +45,9 @@ impl Plugin for Chip8Plugin {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
             // .add_startup_system(setup)
             .add_systems(Startup, setup)
-            .add_systems(
-                Update,
-                (
-                    input,
-                    reset.after(input),
-                    update.after(reset),
-                    draw.after(update),
-                ),
-            );
+            .add_systems(Update, (input, reset, draw).chain())
+            .add_systems(FixedUpdate, update)
+            .insert_resource(Time::<Fixed>::from_hz(60.0));
     }
 }
 
@@ -163,8 +157,17 @@ fn draw(
     chip8.screen_dirty = false;
 }
 
-fn update(mut chip8: ResMut<Chip8>) {
-    chip8.tick();
+fn update(mut chip8: ResMut<Chip8>, config: Res<Config>) {
+    if chip8.delay_timer > 0 {
+        chip8.delay_timer = chip8.delay_timer - 1;
+    }
+    if chip8.sound_timer > 0 {
+        chip8.sound_timer = chip8.sound_timer - 1;
+    }
+
+    for _ in 0..config.ips {
+        chip8.tick();
+    }
 }
 
 fn input(

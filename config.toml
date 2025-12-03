@@ -1,2 +1,5 @@
 rom = "1-chip8-logo"
-theme = "default"
+theme = "powergum"
+# instructions per second
+# I recommend 20, but play around!
+ips = 20
