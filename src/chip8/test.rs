@@ -1,16 +1,16 @@
-use crate::chip8::util;
+// use crate::chip8::util;
 
 use super::Chip8;
 
 #[test]
 fn test_init() {
-    let chip8 = Chip8::new();
+    let chip8 = Chip8::new_no_rom();
     assert_eq!(chip8.program_counter, 0x200);
 }
 
 #[test]
 fn test_opcode_00E0() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.screen[0][0] = 1;
     assert_eq!(chip8.screen[0][0], 1);
     chip8.perform_opcode(0x00E0);
@@ -19,14 +19,14 @@ fn test_opcode_00E0() {
 
 #[test]
 fn test_opcode_1nnn() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.perform_opcode(0x1001);
     assert_eq!(chip8.program_counter, 0x1);
 }
 
 #[test]
 fn test_opcode_2nnn() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.perform_opcode(0x2010);
     assert_eq!(chip8.stack_pointer, 1);
     assert_eq!(chip8.program_counter, 0x10);
@@ -34,13 +34,13 @@ fn test_opcode_2nnn() {
 
 #[test]
 fn test_opcode_3xkk() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[2] = 0x10;
     chip8.perform_opcode(0x3210);
     assert_eq!(chip8.registers[2], 0x10); // Vx (V2) equals kk (0x10), PC should skip
     assert_eq!(chip8.program_counter, 0x204); // PC increments by 4 (skip)
 
-    let mut chip8 = Chip8::new(); // Reset for next test case
+    let mut chip8 = Chip8::new_no_rom(); // Reset for next test case
     chip8.registers[2] = 0x10;
     chip8.perform_opcode(0x3211);
     assert_eq!(chip8.registers[2], 0x10); // Vx (V2) does not equal kk (0x11), PC should not skip
@@ -49,13 +49,13 @@ fn test_opcode_3xkk() {
 
 #[test]
 fn test_opcode_4xkk() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[2] = 0x10;
     chip8.perform_opcode(0x4211); // Vx (0x10) does not equal kk (0x11), PC should skip
     assert_eq!(chip8.registers[2], 0x10);
     assert_eq!(chip8.program_counter, 0x204);
 
-    let mut chip8 = Chip8::new(); // Reset for next test case
+    let mut chip8 = Chip8::new_no_rom(); // Reset for next test case
     chip8.registers[2] = 0x10;
     chip8.perform_opcode(0x4210); // Vx (0x10) equals kk (0x10), PC should not skip
     assert_eq!(chip8.registers[2], 0x10);
@@ -64,13 +64,13 @@ fn test_opcode_4xkk() {
 
 #[test]
 fn test_opcode_5xy0() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[2] = 0x10;
     chip8.registers[3] = 0x10;
     chip8.perform_opcode(0x5230); // Vx (0x10) equals Vy (0x10), PC should skip
     assert_eq!(chip8.program_counter, 0x204);
 
-    let mut chip8 = Chip8::new(); // Reset for next test case
+    let mut chip8 = Chip8::new_no_rom(); // Reset for next test case
     chip8.registers[2] = 0x10;
     chip8.registers[3] = 0x11;
     chip8.perform_opcode(0x5230); // Vx (0x10) does not equal Vy (0x11), PC should not skip
@@ -79,7 +79,7 @@ fn test_opcode_5xy0() {
 
 #[test]
 fn test_opcode_6xkk() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.perform_opcode(0x6123);
     assert_eq!(chip8.registers[1], 0x23);
     assert_eq!(chip8.program_counter, 0x202);
@@ -87,13 +87,13 @@ fn test_opcode_6xkk() {
 
 #[test]
 fn test_opcode_7xkk() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0x01;
     chip8.perform_opcode(0x7105);
     assert_eq!(chip8.registers[1], 0x06); // 1 + 5 = 6
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0xFF; // 255
     chip8.perform_opcode(0x7101); // Add 1
     assert_eq!(chip8.registers[1], 0x00); // Should wrap around
@@ -102,7 +102,7 @@ fn test_opcode_7xkk() {
 
 #[test]
 fn test_opcode_8xy0() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0x10;
     chip8.registers[2] = 0x20;
     chip8.perform_opcode(0x8120); // Set V1 = V2
@@ -112,7 +112,7 @@ fn test_opcode_8xy0() {
 
 #[test]
 fn test_opcode_8xy1() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0b00001111;
     chip8.registers[2] = 0b11110000;
     chip8.perform_opcode(0x8121); // Set V1 = V1 OR V2
@@ -122,7 +122,7 @@ fn test_opcode_8xy1() {
 
 #[test]
 fn test_opcode_8xy2() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0b00001111;
     chip8.registers[2] = 0b11110110;
     chip8.perform_opcode(0x8122); // Set V1 = V1 AND V2
@@ -132,7 +132,7 @@ fn test_opcode_8xy2() {
 
 #[test]
 fn test_opcode_8xy3() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[1] = 0b00001111;
     chip8.registers[2] = 0b11110000;
     chip8.perform_opcode(0x8123); // Set V1 = V1 XOR V2
@@ -142,7 +142,7 @@ fn test_opcode_8xy3() {
 
 #[test]
 fn test_opcode_8xy4() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 10;
     chip8.registers[1] = 5;
     chip8.perform_opcode(0x8014); // V0 = V0 + V1 (10 + 5 = 15, no carry)
@@ -150,7 +150,7 @@ fn test_opcode_8xy4() {
     assert_eq!(chip8.registers[0xF], 0); // No carry, VF should be 0
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 250;
     chip8.registers[1] = 10;
     chip8.perform_opcode(0x8014); // V0 = V0 + V1 (250 + 10 = 260, carry)
@@ -161,7 +161,7 @@ fn test_opcode_8xy4() {
 
 #[test]
 fn test_opcode_8xy5() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 10;
     chip8.registers[1] = 5;
     chip8.perform_opcode(0x8015); // V0 = V0 - V1 (10 - 5 = 5, no borrow)
@@ -169,7 +169,7 @@ fn test_opcode_8xy5() {
     assert_eq!(chip8.registers[0xF], 1); // No borrow (Vx > Vy), VF should be 1
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 5;
     chip8.registers[1] = 10;
     chip8.perform_opcode(0x8015); // V0 = V0 - V1 (5 - 10 = -5, borrow)
@@ -180,14 +180,14 @@ fn test_opcode_8xy5() {
 
 #[test]
 fn test_opcode_8xy6() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b00001010; // 10
     chip8.perform_opcode(0x8006); // V0 = V0 SHR 1, LSB is 0, no quirk
     assert_eq!(chip8.registers[0], 0b00000101); // 5
     assert_eq!(chip8.registers[0xF], 0);
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b00001011; // 11
     chip8.perform_opcode(0x8006); // V0 = V0 SHR 1, LSB is 1, no quirk
     assert_eq!(chip8.registers[0], 0b00000101); // 5
@@ -195,7 +195,7 @@ fn test_opcode_8xy6() {
     assert_eq!(chip8.program_counter, 0x202);
 
     // Test with quirk: Vx=Vy and VF taken *before* overwrite
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b10101011; // Vx = 171, LSB 1
     chip8.registers[1] = 0b00000010; // Vy = 2
     chip8.shift_quirk_vx_eq_vy = true;
@@ -207,7 +207,7 @@ fn test_opcode_8xy6() {
 
 #[test]
 fn test_opcode_8xy7() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 5;
     chip8.registers[1] = 10;
     chip8.perform_opcode(0x8017); // V0 = V1 - V0 (10 - 5 = 5, no borrow)
@@ -215,7 +215,7 @@ fn test_opcode_8xy7() {
     assert_eq!(chip8.registers[0xF], 1); // No borrow (Vy > Vx), VF should be 1
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 10;
     chip8.registers[1] = 5;
     chip8.perform_opcode(0x8017); // V0 = V1 - V0 (5 - 10 = -5, borrow)
@@ -226,14 +226,14 @@ fn test_opcode_8xy7() {
 
 #[test]
 fn test_opcode_8xyE() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b01000000; // 64
     chip8.perform_opcode(0x800E); // V0 = V0 SHL 1, MSB is 0, no quirk
     assert_eq!(chip8.registers[0], 0b10000000); // 128
     assert_eq!(chip8.registers[0xF], 0);
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b11000000; // 192
     chip8.perform_opcode(0x800E); // V0 = V0 SHL 1, MSB is 1, no quirk
     assert_eq!(chip8.registers[0], 0b10000000); // 192 << 1 = 384, wrapped around 256 is 128
@@ -241,7 +241,7 @@ fn test_opcode_8xyE() {
     assert_eq!(chip8.program_counter, 0x202);
 
     // Test with quirk: Vx=Vy and VF taken *before* overwrite
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0b11000000; // Vx = 192, MSB 1
     chip8.registers[1] = 0b00000001; // Vy = 1
     chip8.shift_quirk_vx_eq_vy = true;
@@ -253,13 +253,13 @@ fn test_opcode_8xyE() {
 
 #[test]
 fn test_opcode_9xy0() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[2] = 0x10;
     chip8.registers[3] = 0x11;
     chip8.perform_opcode(0x9230); // Vx (0x10) does not equal Vy (0x11), PC should skip
     assert_eq!(chip8.program_counter, 0x204);
 
-    let mut chip8 = Chip8::new(); // Reset for next test case
+    let mut chip8 = Chip8::new_no_rom(); // Reset for next test case
     chip8.registers[2] = 0x10;
     chip8.registers[3] = 0x10;
     chip8.perform_opcode(0x9230); // Vx (0x10) equals Vy (0x10), PC should not skip
@@ -268,7 +268,7 @@ fn test_opcode_9xy0() {
 
 #[test]
 fn test_opcode_Annn() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.perform_opcode(0xA123);
     assert_eq!(chip8.i, 0x123);
     assert_eq!(chip8.program_counter, 0x202);
@@ -276,7 +276,7 @@ fn test_opcode_Annn() {
 
 #[test]
 fn test_opcode_Bnnn() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0x10;
     chip8.perform_opcode(0xB100); // PC = V0 + 0x100 (0x10 + 0x100 = 0x110)
     assert_eq!(chip8.program_counter, 0x110);
@@ -284,7 +284,7 @@ fn test_opcode_Bnnn() {
 
 #[test]
 fn test_opcode_Cxkk() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     // This test is tricky as rand::Rng is used.
     // For a deterministic test, you would need to mock or control the RNG.
     // Assuming a test where a specific outcome is expected for random number generation.
@@ -296,7 +296,7 @@ fn test_opcode_Cxkk() {
 
 #[test]
 fn test_opcode_Dxyn() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0; // Vx = 0
     chip8.registers[1] = 0; // Vy = 0
     chip8.i = 0x300; // I points to sprite data
@@ -318,7 +318,7 @@ fn test_opcode_Dxyn() {
 
 #[test]
 fn test_opcode_Ex9E() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
 
     chip8.registers[0] = 0x1; // V0 holds key 1
     chip8.keyboard = 0x1; // Key 1 is pressed
@@ -334,7 +334,7 @@ fn test_opcode_Ex9E() {
 
 #[test]
 fn test_opcode_ExA1() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
 
     // Scenario 1: Key in Vx IS pressed (e.g., Vx=0x5, keyboard=0x5) - Should NOT skip (PC + 2)
     chip8.program_counter = 0x200;
@@ -389,7 +389,7 @@ fn test_opcode_ExA1() {
 
 #[test]
 fn test_opcode_Fx07() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
 
     chip8.delay_timer = 10;
     chip8.perform_opcode(0xF007);
@@ -401,7 +401,7 @@ fn test_opcode_Fx07() {
 
 #[test]
 fn test_opcode_Fx15() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
 
     chip8.registers[0] = 10;
     chip8.perform_opcode(0xF015);
@@ -411,7 +411,7 @@ fn test_opcode_Fx15() {
 
 #[test]
 fn test_opcode_Fx18() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
 
     chip8.registers[0] = 10;
     chip8.perform_opcode(0xF018);
@@ -421,14 +421,14 @@ fn test_opcode_Fx18() {
 
 #[test]
 fn test_opcode_Fx1E() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.i = 0x100;
     chip8.registers[0] = 0x05;
     chip8.perform_opcode(0xF01E); // I = I + V0 (0x100 + 0x05 = 0x105)
     assert_eq!(chip8.i, 0x105);
     assert_eq!(chip8.program_counter, 0x202);
 
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.i = 0xFF0;
     chip8.registers[0] = 0x20;
     chip8.perform_opcode(0xF01E); // I = I + V0 (0xFF0 + 0x20 = 0x1010, no overflow beyond 0xFFF)
@@ -440,7 +440,7 @@ fn test_opcode_Fx1E() {
 
 #[test]
 fn test_opcode_Fx29() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.registers[0] = 0x5; // V0 = 5 (character '5')
     chip8.perform_opcode(0xF029);
     // Character '5' font data starts at (5 * 5) = 25 in CHIP8_FONT
@@ -450,7 +450,7 @@ fn test_opcode_Fx29() {
 
 #[test]
 fn test_opcode_Fx33() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.i = 0x300;
     chip8.registers[0] = 123; // V0 = 123
     chip8.perform_opcode(0xF033);
@@ -462,7 +462,7 @@ fn test_opcode_Fx33() {
 
 #[test]
 fn test_opcode_Fx55() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.i = 0x300;
     chip8.registers[0] = 10;
     chip8.registers[1] = 20;
@@ -476,7 +476,7 @@ fn test_opcode_Fx55() {
 
 #[test]
 fn test_opcode_Fx65() {
-    let mut chip8 = Chip8::new();
+    let mut chip8 = Chip8::new_no_rom();
     chip8.i = 0x300;
     chip8.ram[0x300] = 10;
     chip8.ram[0x301] = 20;

@@ -80,7 +80,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn(Camera2d);
 
     // commands.insert_resource(Chip8::new());
-    commands.insert_resource(Chip8::new_from_rom(&rom_to_load));
+    commands.insert_resource(Chip8::new(&rom_to_load));
 
     // Emulated Screen Stuff
     // we multiply by 4 because each pixel needs 4 bytes of data: 1 for red, green, blue, and alpha
@@ -217,7 +217,7 @@ fn reset(
     };
     *theme_colors = temp_theme_colors;
 
-    *chip8 = Chip8::new_from_rom(&config.get_rom_path());
+    *chip8 = Chip8::new(&config.get_rom_path());
     reset_flag.reset = false;
     // blah
 }
@@ -239,7 +239,7 @@ struct Chip8 {
 }
 
 impl Chip8 {
-    fn new() -> Self {
+    fn new_no_rom() -> Self {
         // return default
         Chip8 {
             ram: Chip8::ram_init(),
@@ -257,7 +257,7 @@ impl Chip8 {
         }
     }
 
-    fn new_from_rom(rom: &str) -> Self {
+    fn new(rom: &str) -> Self {
         Chip8 {
             ram: Chip8::ram_init_from_rom(rom),
             registers: [0; 16],
@@ -280,7 +280,7 @@ impl Chip8 {
         for i in 0..util::CHIP8_FONT.len() {
             ram[i] = util::CHIP8_FONT[i];
         }
-        Chip8::load(&mut ram);
+        // Chip8::load(&mut ram);
         return ram;
     }
 
@@ -294,25 +294,25 @@ impl Chip8 {
         return ram;
     }
 
-    fn load(ram: &mut [u8; 4096]) {
-        // load data in
-        println!("{}", std::env::current_dir().unwrap().display());
-        // let rom_name = util::get_rom_to_load();
-        // let file = File::open(rom_name).expect("Couldn't find file. (mod.rs)");
-        let rom_path = util::get_rom_to_load();
-        let file = File::open(&rom_path).expect(&format!(
-            "Couldn't find ROM file at absolute path: {}",
-            rom_path
-        ));
-        let mut reader = BufReader::new(file);
-        let mut buffer: Vec<u8> = Vec::new();
-        reader
-            .read_to_end(&mut buffer)
-            .expect("Failed to read file.");
-        for i in 0..buffer.len() {
-            ram[0x200 + i] = buffer[i];
-        }
-    }
+    // fn load(ram: &mut [u8; 4096]) {
+    //     // load data in
+    //     println!("{}", std::env::current_dir().unwrap().display());
+    //     // let rom_name = util::get_rom_to_load();
+    //     // let file = File::open(rom_name).expect("Couldn't find file. (mod.rs)");
+    //     // let rom_path = util::get_rom_to_load();
+    //     let file = File::open(&rom_path).expect(&format!(
+    //         "Couldn't find ROM file at absolute path: {}",
+    //         rom_path
+    //     ));
+    //     let mut reader = BufReader::new(file);
+    //     let mut buffer: Vec<u8> = Vec::new();
+    //     reader
+    //         .read_to_end(&mut buffer)
+    //         .expect("Failed to read file.");
+    //     for i in 0..buffer.len() {
+    //         ram[0x200 + i] = buffer[i];
+    //     }
+    // }
 
     fn load_from_path(ram: &mut [u8; 4096], rom_path: &str) {
         let file =
@@ -402,6 +402,7 @@ impl Chip8 {
     }
 
     // CLS
+    #[allow(non_snake_case)]
     fn opcode_00E0(&mut self) {
         // Clear the display.
         for row in 0..self.screen.len() {
@@ -413,6 +414,7 @@ impl Chip8 {
     }
 
     // RET
+    #[allow(non_snake_case)]
     fn opcode_00EE(&mut self) {
         // Return from a subroutine.
 
@@ -678,6 +680,7 @@ impl Chip8 {
     }
 
     // SHL Vx {, Vy}
+    #[allow(non_snake_case)]
     fn opcode_8xyE(&mut self, x: usize, y: usize) {
         // Set Vx = Vx SHL 1.
 
@@ -736,6 +739,7 @@ impl Chip8 {
     }
 
     // LD I, addr
+    #[allow(non_snake_case)]
     fn opcode_Annn(&mut self, nnn: u16) {
         // Set I = nnn.
 
@@ -746,6 +750,7 @@ impl Chip8 {
     }
 
     // JP V0, addr
+    #[allow(non_snake_case)]
     fn opcode_Bnnn(&mut self, nnn: u16) {
         // Jump to location nnn + V0.
 
@@ -755,6 +760,7 @@ impl Chip8 {
     }
 
     // RND Vx, byte
+    #[allow(non_snake_case)]
     fn opcode_Cxkk(&mut self, x: usize, kk: u8) {
         // Set Vx = random byte AND kk.
 
@@ -767,6 +773,7 @@ impl Chip8 {
     }
 
     // DRW Vx, Vy, nibble
+    #[allow(non_snake_case)]
     fn opcode_Dxyn(&mut self, x: usize, y: usize, n: usize) {
         // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
 
@@ -819,6 +826,7 @@ impl Chip8 {
     }
 
     // SKP Vx
+    #[allow(non_snake_case)]
     fn opcode_Ex9E(&mut self, x: usize) {
         // Skip next instruction if key with the value of Vx is pressed.
 
@@ -840,6 +848,7 @@ impl Chip8 {
     }
 
     // SKNP A1
+    #[allow(non_snake_case)]
     fn opcode_ExA1(&mut self, x: usize) {
         // Skip next instruction if key with the value of Vx is not pressed.
 
@@ -876,11 +885,13 @@ impl Chip8 {
         // All execution stops until a key is pressed, then the value of that key is stored in Vx.
 
         if !self.keyboard.is_empty() {
+            self.registers[x] = self.keyboard[self.keyboard.len() - 1];
             self.increment_program_counter(1);
         }
     }
 
     // LD DT, Vx
+    #[allow(non_snake_case)]
     fn opcode_Fx15(&mut self, x: usize) {
         // Set delay timer = Vx.
 
@@ -891,6 +902,7 @@ impl Chip8 {
     }
 
     // LD ST, Vx
+    #[allow(non_snake_case)]
     fn opcode_Fx18(&mut self, x: usize) {
         // Set sound timer = Vx.
 
@@ -901,6 +913,7 @@ impl Chip8 {
     }
 
     // ADD I, Vx
+    #[allow(non_snake_case)]
     fn opcode_Fx1E(&mut self, x: usize) {
         // Set I = I + Vx.
 
@@ -911,6 +924,7 @@ impl Chip8 {
     }
 
     // LD F, Vx
+    #[allow(non_snake_case)]
     fn opcode_Fx29(&mut self, x: usize) {
         // Set I = location of sprite for digit Vx.
 
