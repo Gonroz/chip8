@@ -1,7 +1,7 @@
 use bevy::asset::RenderAssetUsages;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-// use bevy::Sprite::*;
+use std::time::Duration;
 
 use rand::Rng;
 
@@ -43,10 +43,10 @@ pub struct Chip8Plugin;
 impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-            // .add_startup_system(setup)
+            .add_message::<PlayPitch>()
             .add_systems(Startup, setup)
             .add_systems(Update, (input, reset, draw).chain())
-            .add_systems(FixedUpdate, update)
+            .add_systems(FixedUpdate, (update, sound).chain())
             .insert_resource(Time::<Fixed>::from_hz(60.0));
     }
 }
@@ -119,20 +119,6 @@ fn draw(
     mut images: ResMut<Assets<Image>>,
     theme_colors: Res<ThemeColors>,
 ) {
-    // TODO: it would probably be smarter to move these color settings to setup
-    // or something so that we aren't recreating the colors every draw.
-    // It really only needs to be done once (or twice if hot reload is done).
-    // let foreground_color: Color = Color::srgb_u8(
-    //     theme.foreground[0],
-    //     theme.foreground[1],
-    //     theme.foreground[2],
-    // );
-    // let background_color: Color = Color::srgb_u8(
-    //     theme.background[0],
-    //     theme.background[1],
-    //     theme.background[2],
-    // );
-
     if !chip8.screen_dirty {
         return;
     }
@@ -184,6 +170,28 @@ fn input(
 
     for key in input.get_pressed() {
         chip8.keyboard.push(util::keycode_to_hex(&key));
+    }
+}
+
+#[derive(Message, Default)]
+struct PlayPitch;
+
+fn sound(
+    mut commands: Commands,
+    chip8: Res<Chip8>,
+    config: Res<Config>,
+    mut pitch_assets: ResMut<Assets<Pitch>>,
+    // mut play_pitch_reader: MessageReader<PlayPitch>,
+) {
+    //blah
+    if chip8.sound_timer > 0 {
+        commands.spawn((
+            AudioPlayer(pitch_assets.add(Pitch::new(
+                config.pitch_frequency,
+                Duration::from_millis(config.pitch_duration),
+            ))),
+            PlaybackSettings::DESPAWN,
+        ));
     }
 }
 

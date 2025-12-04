@@ -1,4 +1,6 @@
-rom = "1-chip8-logo"
+rom = "outlaw"
 theme = "powergum"
 # I recommend 20, but play around!
 instructions_per_second = 20
+pitch_frequency = 220
+pitch_duration = 150
