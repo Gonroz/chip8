@@ -20,6 +20,8 @@ use theme::Theme;
 
 mod util;
 
+mod ui;
+
 const CHIP8_WIDTH: u32 = 64;
 const CHIP8_HEIGHT: u32 = 32;
 const SCREEN_SCALE_FACTOR: f32 = 16.0;
@@ -34,7 +36,7 @@ struct ThemeColors {
 }
 
 #[derive(Resource)]
-struct ResetFlag {
+pub struct ResetFlag {
     reset: bool,
 }
 
@@ -43,6 +45,7 @@ pub struct Chip8Plugin;
 impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+            .add_plugins(ui::UiPlugin)
             .add_message::<PlayPitch>()
             .add_systems(Startup, setup)
             .add_systems(Update, (input, reset, draw).chain())
@@ -51,7 +54,16 @@ impl Plugin for Chip8Plugin {
     }
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut window: Single<&mut Window>,
+) {
+    window.resolution.set(
+        CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR + 100.0,
+        CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR,
+    );
+
     // First create a Config, then get the Theme
     let config: Config = Config::new();
     let theme: Theme = Theme::new(&config.theme);
