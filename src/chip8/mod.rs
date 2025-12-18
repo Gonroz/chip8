@@ -20,9 +20,14 @@ use theme::Theme;
 
 mod util;
 
+mod ui;
+
 const CHIP8_WIDTH: u32 = 64;
 const CHIP8_HEIGHT: u32 = 32;
 const SCREEN_SCALE_FACTOR: f32 = 16.0;
+
+const WIDTH_OFFSET: f32 = 200.0;
+const HEIGHT_OFFSET: f32 = 100.0;
 
 #[derive(Resource)]
 struct ScreenHandle(Handle<Image>);
@@ -34,7 +39,7 @@ struct ThemeColors {
 }
 
 #[derive(Resource)]
-struct ResetFlag {
+pub struct ResetFlag {
     reset: bool,
 }
 
@@ -43,15 +48,26 @@ pub struct Chip8Plugin;
 impl Plugin for Chip8Plugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+            .add_plugins(ui::UiPlugin)
             .add_message::<PlayPitch>()
-            .add_systems(Startup, setup)
+            .add_systems(Startup, (setup).chain())
+            // .add_systems(Startup, setup_screen)
             .add_systems(Update, (input, reset, draw).chain())
             .add_systems(FixedUpdate, (update, sound).chain())
             .insert_resource(Time::<Fixed>::from_hz(60.0));
     }
 }
 
-fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup(
+    mut commands: Commands,
+    mut images: ResMut<Assets<Image>>,
+    mut window: Single<&mut Window>,
+) {
+    window.resolution.set(
+        CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR + WIDTH_OFFSET,
+        CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR + HEIGHT_OFFSET,
+    );
+
     // First create a Config, then get the Theme
     let config: Config = Config::new();
     let theme: Theme = Theme::new(&config.theme);
@@ -104,13 +120,12 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     let image_handle = images.add(image);
     commands.insert_resource(ScreenHandle(image_handle.clone()));
 
+    let screen_width: f32 = CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR;
+    let screen_height: f32 = CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR;
     let mut screen = Sprite::from_image(image_handle);
-    screen.custom_size = Some(Vec2::new(
-        CHIP8_WIDTH as f32 * SCREEN_SCALE_FACTOR,
-        CHIP8_HEIGHT as f32 * SCREEN_SCALE_FACTOR,
-    ));
+    screen.custom_size = Some(Vec2::new(screen_width, screen_height));
 
-    commands.spawn(screen);
+    commands.spawn((screen, Transform::from_xyz(-WIDTH_OFFSET / 2.0, 0.0, 0.0)));
 }
 
 fn draw(
